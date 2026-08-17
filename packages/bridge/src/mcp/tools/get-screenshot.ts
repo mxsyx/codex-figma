@@ -69,6 +69,11 @@ export function registerGetScreenshot(
         };
       }
 
+      // Also return the on-disk file path — some MCP clients (incl. Codex CLI)
+      // don't render ImageContent natively and instead dump the raw JSON. The
+      // file path lets the user open the screenshot directly.
+      const filePath = store.getAssetPath(args.nodeId);
+
       return {
         content: [
           {
@@ -78,7 +83,9 @@ export function registerGetScreenshot(
           },
           {
             type: 'text',
-            text: `Screenshot of node ${args.nodeId} (${asset.format}, ${asset.width ?? '?'}x${asset.height ?? '?'}).`,
+            text:
+              `Screenshot of node ${args.nodeId} (${asset.format}, ${asset.width ?? '?'}x${asset.height ?? '?'}).` +
+              (filePath ? `\n\nFile path: ${filePath}\nOpen it with: open "${filePath}"` : ''),
           },
         ],
       };

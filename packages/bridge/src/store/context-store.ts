@@ -6,22 +6,18 @@
  * disk so a user can `cat ~/Library/Caches/codex-figma-bridge/current-selection.json`
  * to see exactly what the agent sees.
  */
-import { promises as fs } from 'node:fs';
-import { join } from 'node:path';
-import { appendFileSync } from 'node:fs';
-import {
-  type BridgePaths,
-  safeNodeId,
-  assetFileName,
-} from './paths.js';
-import type { Logger } from '../util/logger.js';
+import { promises as fs } from "node:fs";
+import { join } from "node:path";
+import { appendFileSync } from "node:fs";
+import { type BridgePaths, safeNodeId, assetFileName } from "./paths.js";
+import type { Logger } from "../util/logger.js";
 import {
   type CapturedSelection,
   type SelectionEntry,
   type SerializedNode,
   type AssetPayload,
   type BoundVariable,
-} from './schema.js';
+} from "./schema.js";
 
 export interface GetNodeOptions {
   depth?: number;
@@ -91,26 +87,29 @@ export class ContextStore {
 
     for (const [id, node] of Object.entries(payload.nodes)) {
       this.nodes.set(id, node);
-      await this.writeJson(join(this.paths.nodesDir, `${safeNodeId(id)}.json`), node);
+      await this.writeJson(
+        join(this.paths.nodesDir, `${safeNodeId(id)}.json`),
+        node,
+      );
     }
 
     for (const [id, asset] of Object.entries(payload.assets)) {
       this.assets.set(id, asset);
       await fs.writeFile(
         join(this.paths.assetsDir, assetFileName(id, asset.format)),
-        Buffer.from(asset.base64, 'base64'),
+        Buffer.from(asset.base64, "base64"),
       );
     }
 
     await this.writeJson(this.paths.currentSelection, summary);
-    this.appendEvent('selection-change', {
+    this.appendEvent("selection-change", {
       capturedAt: summary.capturedAt,
       fileKey: summary.fileKey,
       pageId: summary.pageId,
       selectionCount: summary.selectionCount,
     });
 
-    this.log.info('selection stored', {
+    this.log.info("selection stored", {
       fileKey: summary.fileKey,
       page: summary.pageName,
       count: summary.selectionCount,
@@ -128,8 +127,15 @@ export class ContextStore {
    */
   async addNode(nodeId: string, node: SerializedNode): Promise<void> {
     this.nodes.set(nodeId, node);
-    await this.writeJson(join(this.paths.nodesDir, `${safeNodeId(nodeId)}.json`), node);
-    this.log.info('node fetched on demand', { nodeId, type: node.type, nodes: this.nodes.size });
+    await this.writeJson(
+      join(this.paths.nodesDir, `${safeNodeId(nodeId)}.json`),
+      node,
+    );
+    this.log.info("node fetched on demand", {
+      nodeId,
+      type: node.type,
+      nodes: this.nodes.size,
+    });
   }
 
   /**
@@ -141,7 +147,7 @@ export class ContextStore {
       this.assets.set(id, asset);
       await fs.writeFile(
         join(this.paths.assetsDir, assetFileName(id, asset.format)),
-        Buffer.from(asset.base64, 'base64'),
+        Buffer.from(asset.base64, "base64"),
       );
     }
   }
@@ -163,7 +169,10 @@ export class ContextStore {
     return Array.from(this.nodes.keys());
   }
 
-  getScreenshot(nodeId: string, format: 'PNG' | 'SVG' = 'PNG'): AssetPayload | null {
+  getScreenshot(
+    nodeId: string,
+    format: "PNG" | "SVG" = "PNG",
+  ): AssetPayload | null {
     const asset = this.assets.get(nodeId);
     if (!asset) return null;
     if (asset.format === format) return asset;
@@ -172,8 +181,15 @@ export class ContextStore {
     return asset;
   }
 
-  getAsset(nodeId: string, format: 'PNG' | 'SVG' = 'SVG'): AssetPayload | null {
+  getAsset(nodeId: string, format: "PNG" | "SVG" = "SVG"): AssetPayload | null {
     return this.getScreenshot(nodeId, format);
+  }
+
+  /** Absolute path to the cached asset file on disk (for clients that can't render MCP image content). */
+  getAssetPath(nodeId: string): string | null {
+    const asset = this.assets.get(nodeId);
+    if (!asset) return null;
+    return join(this.paths.assetsDir, assetFileName(nodeId, asset.format));
   }
 
   listNodes(filter: { type?: string; name?: string } = {}): NodeSearchHit[] {
@@ -200,7 +216,11 @@ export class ContextStore {
     for (const root of this.nodes.values()) {
       walk(root, null, (node) => {
         for (const v of node.variables) {
-          if (filter.collectionName && v.collectionName !== filter.collectionName) continue;
+          if (
+            filter.collectionName &&
+            v.collectionName !== filter.collectionName
+          )
+            continue;
           rows.push({
             nodeId: node.id,
             nodeName: node.name,
@@ -224,7 +244,10 @@ export class ContextStore {
     try {
       await fs.writeFile(path, JSON.stringify(value, null, 2));
     } catch (err) {
-      this.log.error('failed to write cache file', { path, error: String(err) });
+      this.log.error("failed to write cache file", {
+        path,
+        error: String(err),
+      });
     }
   }
 
@@ -232,7 +255,7 @@ export class ContextStore {
     try {
       appendFileSync(
         this.paths.eventsLog,
-        JSON.stringify({ ts: new Date().toISOString(), type, data }) + '\n',
+        JSON.stringify({ ts: new Date().toISOString(), type, data }) + "\n",
       );
     } catch {
       // Events log is best-effort.

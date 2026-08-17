@@ -79,6 +79,12 @@ export function registerGetAsset(
             }
           : null;
 
+      // On-disk file path — for clients that don't render ImageContent natively.
+      const filePath = store.getAssetPath(args.nodeId);
+      const pathHint = filePath
+        ? `\n\nFile path: ${filePath}`
+        : '';
+
       return {
         content: [
           {
@@ -93,13 +99,13 @@ export function registerGetAsset(
                   type: 'text' as const,
                   text:
                     `SVG source for node ${args.nodeId}. Save this as a .svg file in the project's ` +
-                    `assets directory; do not inline a modified version.`,
+                    `assets directory; do not inline a modified version.${pathHint}`,
                 },
               ]
             : [
                 {
                   type: 'text' as const,
-                  text: `PNG asset for node ${args.nodeId} (${asset.width ?? '?'}x${asset.height ?? '?'}).`,
+                  text: `PNG asset for node ${args.nodeId} (${asset.width ?? '?'}x${asset.height ?? '?'}).${pathHint}`,
                 },
               ]),
         ],
