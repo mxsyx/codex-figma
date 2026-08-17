@@ -1,7 +1,7 @@
 {
-  "name": "codex-figma-local",
+  "name": "codex-figma",
   "interface": {
-    "displayName": "Codex Figma Bridge (local)"
+    "displayName": "Codex Figma Bridge"
   },
   "plugins": [
     {
