@@ -124,10 +124,35 @@ type = "http"
 url = "http://localhost:3845/mcp"
 ```
 
-安装 Codex 插件（可选 —— 给 Codex 提供 skill + 斜杠命令）：
+安装 Codex 插件（可选 —— 给 Codex 提供 skill + 斜杠命令）。Codex 采用两层市场体系：先注册一个 marketplace 源（本仓库已内置 [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json)），再从中安装插件。
+
+**方式 A —— 从 Git 安装（推荐用于分发）：**
 
 ```bash
-codex plugin install ./codex-plugin
+codex plugin marketplace add git@github.com:mxsyx/codex-figma.git
+codex plugin add codex-figma-bridge@codex-figma
+```
+
+**方式 B —— 从本地克隆安装（用于插件开发）：**
+
+```bash
+codex plugin marketplace add .
+codex plugin add codex-figma-bridge@codex-figma
+```
+
+两种方式注册的 marketplace 名都是 `codex-figma`（来自 `marketplace.json`），同一时间只能注册一个 —— 切换源之前先执行 `codex plugin marketplace remove codex-figma`。
+
+验证：
+
+```bash
+codex plugin list --marketplace codex-figma --available --json
+```
+
+卸载或移除 marketplace：
+
+```bash
+codex plugin remove codex-figma-bridge@codex-figma
+codex plugin marketplace remove codex-figma
 ```
 
 如果你跳过插件安装，把 [`AGENTS.md.template`](AGENTS.md.template) 复制到目标仓库根目录命名为 `AGENTS.md`，Codex 依然能学到这套工作流。

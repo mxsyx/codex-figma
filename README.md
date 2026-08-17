@@ -57,9 +57,9 @@ A Figma Desktop plugin captures the user's current selection (node tree, styles,
 
 | Path                                                     | Component               | What it does                                                               |
 | -------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
-| [`figma-plugin/`](packages/figma-plugin/)                         | Figma Desktop plugin    | Captures the live selection + ships it to the bridge.                      |
-| [`bridge/`](packages/bridge/)                                     | Local HTTP + MCP server | Caches the selection on disk; exposes MCP tools to Codex.                  |
-| [`codex-plugin/`](packages/codex-plugin/)                         | Codex CLI plugin        | Skill + command + agents that teach Codex how to use the local MCP tools.  |
+| [`figma-plugin/`](packages/figma-plugin/)                | Figma Desktop plugin    | Captures the live selection + ships it to the bridge.                      |
+| [`bridge/`](packages/bridge/)                            | Local HTTP + MCP server | Caches the selection on disk; exposes MCP tools to Codex.                  |
+| [`codex-plugin/`](packages/codex-plugin/)                | Codex CLI plugin        | Skill + command + agents that teach Codex how to use the local MCP tools.  |
 | [`2.0.17/`](2.0.17/)                                     | Reference (read-only)   | Figma's official Codex plugin (cloud-connector variant) for comparison.    |
 | [`AGENTS.md.template`](AGENTS.md.template)               | Drop-in rules           | Copy into your target repo to guide Codex when implementing Figma designs. |
 | [`codex-config.snippet.toml`](codex-config.snippet.toml) | Codex config            | MCP server snippet for `~/.codex/config.toml`.                             |
@@ -123,27 +123,35 @@ type = "http"
 url = "http://localhost:3845/mcp"
 ```
 
-Install the Codex plugin (optional — gives Codex the skill + slash command). Codex uses a two-tier marketplace system, so installing a local plugin is two steps: register the marketplace root (this repo, which ships [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json)), then install the plugin from it.
+Install the Codex plugin (optional — gives Codex the skill + slash command). Codex uses a two-tier marketplace system: register a marketplace source (this repo ships [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json)), then install the plugin from it.
+
+**Option A — from Git (recommended for distribution):**
 
 ```bash
-# 1. Register this repo as a local marketplace (writes to ~/.codex/config.toml)
-codex plugin marketplace add .
-
-# 2. Install the plugin from the registered marketplace
-codex plugin add codex-figma-bridge@codex-figma-local
+codex plugin marketplace add git@github.com:mxsyx/codex-figma.git
+codex plugin add codex-figma-bridge@codex-figma
 ```
+
+**Option B — from a local clone (for plugin development):**
+
+```bash
+codex plugin marketplace add .
+codex plugin add codex-figma-bridge@codex-figma
+```
+
+Both options register a marketplace named `codex-figma` (read from `marketplace.json`), so only one can be active at a time — run `codex plugin marketplace remove codex-figma` before switching sources.
 
 Verify:
 
 ```bash
-codex plugin list --marketplace codex-figma-local --available --json
+codex plugin list --marketplace codex-figma --available --json
 ```
 
 To uninstall or remove the marketplace later:
 
 ```bash
-codex plugin remove codex-figma-bridge@codex-figma-local
-codex plugin marketplace remove codex-figma-local
+codex plugin remove codex-figma-bridge@codex-figma
+codex plugin marketplace remove codex-figma
 ```
 
 If you skip the plugin install, copy [`AGENTS.md.template`](AGENTS.md.template) into your target repo as `AGENTS.md` so Codex still learns the workflow.
@@ -275,8 +283,8 @@ In the UI pick transport `Streamable HTTP`, URL `http://127.0.0.1:3845/mcp`, con
 
 The plugin runs in two contexts; each has its own console.
 
-| Context          | File                                  | Where its `console.log` lands                                     |
-| ---------------- | ------------------------------------- | ----------------------------------------------------------------- |
+| Context          | File                                           | Where its `console.log` lands                                     |
+| ---------------- | ---------------------------------------------- | ----------------------------------------------------------------- |
 | Sandbox (no DOM) | [`code.ts`](packages/figma-plugin/src/code.ts) | Figma's main Dev Console                                          |
 | UI iframe        | [`ui.ts`](packages/figma-plugin/src/ui/ui.ts)  | Iframe console — pick it from the dropdown at the top of DevTools |
 
