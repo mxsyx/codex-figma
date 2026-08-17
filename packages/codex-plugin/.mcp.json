@@ -1,8 +1,6 @@
 {
-  "mcpServers": {
-    "codex-figma-bridge": {
-      "type": "http",
-      "url": "http://localhost:3845/mcp"
-    }
+  "codex-figma-bridge": {
+    "type": "http",
+    "url": "http://localhost:3845/mcp"
   }
 }
