@@ -116,15 +116,9 @@ cat ~/Library/Caches/codex-figma-bridge/current-selection.json
 
 ### 3. 配置 Codex CLI
 
-把 [`codex-config.snippet.toml`](codex-config.snippet.toml) 里的片段追加到 `~/.codex/config.toml`：
+**推荐 —— 安装 Codex 插件。** 插件自带 [.mcp.json](packages/codex-plugin/.mcp.json)，安装时会自动注册 MCP server，并添加 `figma-implement-design` skill + `/implement-from-figma` 斜杠命令 —— 无需手动编辑 `config.toml`。
 
-```toml
-[mcp_servers.codex-figma-bridge]
-type = "http"
-url = "http://localhost:3845/mcp"
-```
-
-安装 Codex 插件（可选 —— 给 Codex 提供 skill + 斜杠命令）。Codex 采用两层市场体系：先注册一个 marketplace 源（本仓库已内置 [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json)），再从中安装插件。
+Codex 采用两层市场体系：先注册一个 marketplace 源（本仓库已内置 [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json)），再从中安装插件。
 
 **方式 A —— 从 Git 安装（推荐用于分发）：**
 
@@ -142,10 +136,11 @@ codex plugin add codex-figma-bridge@codex-figma
 
 两种方式注册的 marketplace 名都是 `codex-figma`（来自 `marketplace.json`），同一时间只能注册一个 —— 切换源之前先执行 `codex plugin marketplace remove codex-figma`。
 
-验证：
+验证插件及其自带的 MCP server 已注册：
 
 ```bash
 codex plugin list --marketplace codex-figma --available --json
+codex mcp list | grep codex-figma-bridge   # → enabled, http://localhost:3845/mcp
 ```
 
 卸载或移除 marketplace：
@@ -155,7 +150,13 @@ codex plugin remove codex-figma-bridge@codex-figma
 codex plugin marketplace remove codex-figma
 ```
 
-如果你跳过插件安装，把 [`AGENTS.md.template`](AGENTS.md.template) 复制到目标仓库根目录命名为 `AGENTS.md`，Codex 依然能学到这套工作流。
+**备选 —— 手动配置 MCP（如果你跳过插件安装）。** 把 [`codex-config.snippet.toml`](codex-config.snippet.toml) 里的片段追加到 `~/.codex/config.toml`，并把 [`AGENTS.md.template`](AGENTS.md.template) 复制到目标仓库根目录命名为 `AGENTS.md`，Codex 依然能学到这套工作流：
+
+```toml
+[mcp_servers.codex-figma-bridge]
+type = "http"
+url = "http://localhost:3845/mcp"
+```
 
 ## 使用
 

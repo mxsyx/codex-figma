@@ -115,15 +115,9 @@ cat ~/Library/Caches/codex-figma-bridge/current-selection.json
 
 ### 3. Configure Codex CLI
 
-Append the snippet from [`codex-config.snippet.toml`](codex-config.snippet.toml) to `~/.codex/config.toml`:
+**Recommended — install the Codex plugin.** This registers the MCP server automatically via [.mcp.json](packages/codex-plugin/.mcp.json) bundled with the plugin, and adds the `figma-implement-design` skill + `/implement-from-figma` command — no manual `config.toml` editing required.
 
-```toml
-[mcp_servers.codex-figma-bridge]
-type = "http"
-url = "http://localhost:3845/mcp"
-```
-
-Install the Codex plugin (optional — gives Codex the skill + slash command). Codex uses a two-tier marketplace system: register a marketplace source (this repo ships [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json)), then install the plugin from it.
+Codex uses a two-tier marketplace system: register a marketplace source (this repo ships [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json)), then install the plugin from it.
 
 **Option A — from Git (recommended for distribution):**
 
@@ -141,10 +135,11 @@ codex plugin add codex-figma-bridge@codex-figma
 
 Both options register a marketplace named `codex-figma` (read from `marketplace.json`), so only one can be active at a time — run `codex plugin marketplace remove codex-figma` before switching sources.
 
-Verify:
+Verify the plugin and its bundled MCP server are registered:
 
 ```bash
 codex plugin list --marketplace codex-figma --available --json
+codex mcp list | grep codex-figma-bridge   # → enabled, http://localhost:3845/mcp
 ```
 
 To uninstall or remove the marketplace later:
@@ -154,7 +149,13 @@ codex plugin remove codex-figma-bridge@codex-figma
 codex plugin marketplace remove codex-figma
 ```
 
-If you skip the plugin install, copy [`AGENTS.md.template`](AGENTS.md.template) into your target repo as `AGENTS.md` so Codex still learns the workflow.
+**Fallback — configure MCP manually (if you skip the plugin).** Append the snippet from [`codex-config.snippet.toml`](codex-config.snippet.toml) to `~/.codex/config.toml`, and copy [`AGENTS.md.template`](AGENTS.md.template) into your target repo as `AGENTS.md` so Codex still learns the workflow:
+
+```toml
+[mcp_servers.codex-figma-bridge]
+type = "http"
+url = "http://localhost:3845/mcp"
+```
 
 ## Usage
 
