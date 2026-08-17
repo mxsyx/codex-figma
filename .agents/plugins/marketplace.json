@@ -1,0 +1,20 @@
+{
+  "name": "codex-figma-local",
+  "interface": {
+    "displayName": "Codex Figma Bridge (local)"
+  },
+  "plugins": [
+    {
+      "name": "codex-figma-bridge",
+      "source": {
+        "source": "local",
+        "path": "./packages/codex-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Creativity"
+    }
+  ]
+}

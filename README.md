@@ -96,7 +96,7 @@ curl http://localhost:3845/health
 
 ### 2. Install the Figma plugin
 
-1. `cd figma-plugin && npm install && npm run build`
+1. `cd packages/figma-plugin && npm install && npm run build`
 2. Open Figma Desktop → **Menu → Plugins → Development → New Plugin…**
 3. Click **"Click to link a plugin from your file system"**
 4. Select [`figma-plugin/manifest.json`](packages/figma-plugin/manifest.json).
@@ -123,10 +123,27 @@ type = "http"
 url = "http://localhost:3845/mcp"
 ```
 
-Install the Codex plugin (optional — gives Codex the skill + slash command):
+Install the Codex plugin (optional — gives Codex the skill + slash command). Codex uses a two-tier marketplace system, so installing a local plugin is two steps: register the marketplace root (this repo, which ships [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json)), then install the plugin from it.
 
 ```bash
-codex plugin install ./codex-plugin
+# 1. Register this repo as a local marketplace (writes to ~/.codex/config.toml)
+codex plugin marketplace add .
+
+# 2. Install the plugin from the registered marketplace
+codex plugin add codex-figma-bridge@codex-figma-local
+```
+
+Verify:
+
+```bash
+codex plugin list --marketplace codex-figma-local --available --json
+```
+
+To uninstall or remove the marketplace later:
+
+```bash
+codex plugin remove codex-figma-bridge@codex-figma-local
+codex plugin marketplace remove codex-figma-local
 ```
 
 If you skip the plugin install, copy [`AGENTS.md.template`](AGENTS.md.template) into your target repo as `AGENTS.md` so Codex still learns the workflow.
