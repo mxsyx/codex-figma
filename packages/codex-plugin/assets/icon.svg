@@ -1,9 +1,30 @@
-<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-  <!-- Code brackets </> using Figma brand colors -->
-  <!-- < (left bracket) — red -->
-  <path d="M11 4 L8 8 L11 12" stroke="#F24E1E" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- / (slash) — purple -->
-  <line x1="12" y1="12" x2="9" y2="4" stroke="#A259FF" stroke-width="1.6" stroke-linecap="round"/>
-  <!-- > (right bracket) — orange -->
-  <path d="M13 4 L15 8 L13 12" stroke="#FF7262" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<svg
+  width="16"
+  height="16"
+  viewBox="0 0 16 16"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <path
+    d="M4.2 3.0L1.2 7.45C0.95 7.8 0.95 8.2 1.2 8.55L4.2 13.0"
+    stroke="#F24E1E"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <path
+    d="M11.8 3.0L14.8 7.45C15.05 7.8 15.05 8.2 14.8 8.55L11.8 13.0"
+    stroke="#1ABCFE"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <path
+    d="M9.75 1.2L6.25 14.8"
+    stroke="#A259FF"
+    stroke-width="1.8"
+    stroke-linecap="round"
+  />
 </svg>
