@@ -1,1 +1,13 @@
-<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><g transform="translate(64 122)"><mask id="a"><path d="M-64-122h16v16h-16v-16z" fill="#FFF"/></mask><g style="mix-blend-mode:normal" mask="url(#a)"><use xlink:href="#b" transform="translate(-56 -116)" fill="#1ABCFE" style="mix-blend-mode:normal"/><use xlink:href="#c" transform="translate(-61 -111)" fill="#0ACF83" style="mix-blend-mode:normal"/><use xlink:href="#d" transform="matrix(0 1 1 0 -56 -121)" fill="#FF7262" style="mix-blend-mode:normal"/><use xlink:href="#e" transform="matrix(1 0 0 -1 -61 -116)" fill="#F24E1E" style="mix-blend-mode:normal"/><use xlink:href="#e" transform="matrix(1 0 0 -1 -61 -111)" fill="#A259FF" style="mix-blend-mode:normal"/></g></g><defs><path id="b" d="M0 2.5a2.5 2.5 0 0 1 5 0 2.5 2.5 0 0 1-5 0z"/><path id="c" d="M0 2.5A2.5 2.5 0 0 1 2.5 0H5v2.5a2.5 2.5 0 0 1-5 0z"/><path id="d" d="M0 0h5v2.5a2.5 2.5 0 0 1-5 0V0z"/><path id="e" d="M0 2.5A2.5 2.5 0 0 1 2.5 0H5v5H2.5A2.5 2.5 0 0 1 0 2.5z"/></defs></svg>
+<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <!-- Left: Figma design shapes (simplified logo, brand colors) -->
+  <rect x="1" y="2.5" width="4.5" height="4.5" rx="1.25" fill="#1ABCFE"/>
+  <rect x="1" y="9" width="4.5" height="4.5" rx="1.25" fill="#0ACF83"/>
+
+  <!-- Right: Code brackets </> representing Codex (code generation) -->
+  <!-- < (left bracket) -->
+  <path d="M11 5 L9 8 L11 11" stroke="#F24E1E" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- / (slash) -->
+  <line x1="12.5" y1="11" x2="10" y2="5" stroke="#A259FF" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- > (right bracket) -->
+  <path d="M13 5 L15 8 L13 11" stroke="#FF7262" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

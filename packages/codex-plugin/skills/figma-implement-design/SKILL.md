@@ -42,8 +42,8 @@ This skill owns the **workflow** for design-to-code. The local MCP tools (`get_s
 
 ### 3. Pull the visual reference with `get_screenshot`
 
-- Call `get_screenshot` for each selected root. The PNG is the **source of truth for parity** — use it to verify spacing, color, hierarchy, and overall composition.
-- You MUST call `get_screenshot` even if the node tree looks complete — visual regressions are easy to miss in the JSON.
+- Call `get_screenshot` for each selected root. The PNG is your **visual reference** — use it to understand spacing, color, hierarchy, and overall composition.
+- You MUST call `get_screenshot` even if the node tree looks complete — visual details are easy to miss in the JSON.
 
 ### 4. Pull icons and vector art with `get_asset`
 
@@ -74,13 +74,11 @@ Apply design hints in this order — earlier sources override later ones:
 - **Reuse a project icon component only if its glyph clearly matches** (a name match is not enough); otherwise use the exported asset.
 - **Size explicitly:** a fixed-size container (icons are usually square, e.g. `size-[24px]`, `overflow-clip`) with BOTH width and height set, and size the leaf `<img>`/`<svg>` to fill it (`100%` or fixed px) — never `auto`, which blows the image up to its intrinsic size.
 
-### 8. Verify and report parity
+### 8. Verify
 
 - After writing code, run the project's lint / typecheck / preview build.
-- Compare the rendered output against `get_screenshot` and call out:
-  - What matches (spacing, typography, color, hierarchy)
-  - What differs (a11y, project conventions, technical constraints)
-  - Suggested next steps (tweaks, follow-up parity review)
+- Confirm the code compiles and runs without errors.
+- Note any design details you couldn't fully capture from the Figma data (e.g. missing fonts, unresolved variables) so the user can address them.
 
 ## Error Recovery
 

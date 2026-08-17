@@ -15,8 +15,8 @@ Implement the user's current Figma selection into project code via the local Cod
 3. Walk the tree, call `get_asset` (SVG) for every VECTOR / BOOLEAN_OPERATION descendant, and commit the bytes to the project's assets directory.
 4. Implement using project conventions and reusable components. Map Figma variables to project tokens via `get_variables`.
 5. Run local lint / typecheck / preview.
-6. Summarize parity (what matches / what differs) and list any known deltas.
+6. Summarize what was implemented and list any known limitations.
 
 ## Escalation
 
-Delegate to `figma-implementation-agent` for substantial UI work or multi-file changes. Delegate to `design-parity-review-agent` for a structured parity review after implementation.
+Delegate to `figma-implementation-agent` for substantial UI work or multi-file changes.
