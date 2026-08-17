@@ -53,8 +53,8 @@ export function createMcpServer(
 
   registerGetSelection(server, store);
   registerGetNode(server, store, sse, pendingFetch, log);
-  registerGetScreenshot(server, store);
-  registerGetAsset(server, store);
+  registerGetScreenshot(server, store, sse, pendingFetch, log);
+  registerGetAsset(server, store, sse, pendingFetch, log);
   registerListNodes(server, store);
   registerGetVariables(server, store);
 

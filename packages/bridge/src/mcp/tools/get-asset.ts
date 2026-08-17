@@ -2,8 +2,18 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ContextStore } from '../../store/context-store.js';
+import type { SseBroadcaster } from '../../util/sse.js';
+import type { PendingFetchRegistry } from '../../store/pending-fetch.js';
+import type { Logger } from '../../util/logger.js';
+import { fetchNodeOnDemand } from './fetch-on-demand.js';
 
-export function registerGetAsset(server: McpServer, store: ContextStore): void {
+export function registerGetAsset(
+  server: McpServer,
+  store: ContextStore,
+  sse: SseBroadcaster,
+  pendingFetch: PendingFetchRegistry,
+  log: Logger,
+): void {
   server.registerTool(
     'get_asset',
     {
@@ -12,12 +22,13 @@ export function registerGetAsset(server: McpServer, store: ContextStore): void {
         'Returns raw image bytes (SVG preferred for icons, PNG for illustrations/photos) for a ' +
         'single Figma node, captured by the plugin via `node.exportAsync`. Use this to render ' +
         'icons and images faithfully — never hand-write SVG or substitute an icon library. ' +
+        'If the node is not cached, the bridge asks the plugin to fetch it on demand. ' +
         'Commit the returned bytes to the repo (the asset URL is local-only and won\'t be ' +
         'available to the running app). Returns MCP image content (base64).',
       inputSchema: {
         nodeId: z
           .string()
-          .describe('Figma node id to export. Use list_nodes with type=VECTOR or type=INSTANCE to find icons.'),
+          .describe('Figma node id to export. Can be any node in the current Figma file. Use list_nodes with type=VECTOR or type=INSTANCE to find icons.'),
         format: z
           .enum(['PNG', 'SVG'])
           .optional()
@@ -31,7 +42,21 @@ export function registerGetAsset(server: McpServer, store: ContextStore): void {
     },
     async (args) => {
       const format = args.format ?? 'SVG';
-      const asset = store.getAsset(args.nodeId, format);
+      let asset = store.getAsset(args.nodeId, format);
+
+      // Cache miss — ask the plugin to fetch the node on demand.
+      // captureNode() captures SVG for vector leaves + PNG for the root.
+      if (!asset) {
+        const fetchResult = await fetchNodeOnDemand(args.nodeId, store, sse, pendingFetch, log);
+        if (!fetchResult.ok) {
+          return {
+            isError: true,
+            content: [{ type: 'text', text: fetchResult.error! }],
+          };
+        }
+        asset = store.getAsset(args.nodeId, format);
+      }
+
       if (!asset) {
         return {
           isError: true,
@@ -39,12 +64,13 @@ export function registerGetAsset(server: McpServer, store: ContextStore): void {
             {
               type: 'text',
               text:
-                `No asset cached for node "${args.nodeId}". Re-run the plugin\'s "Push now" button ` +
-                `with the node selected. Note: SVG assets are only captured for vector leaf nodes.`,
+                `Node "${args.nodeId}" was fetched but no ${format} asset was captured. ` +
+                `SVG assets are only captured for vector leaf nodes; try format: "PNG" instead.`,
             },
           ],
         };
       }
+
       const textPart =
         asset.format === 'SVG'
           ? {

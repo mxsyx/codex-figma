@@ -2,21 +2,31 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ContextStore } from '../../store/context-store.js';
+import type { SseBroadcaster } from '../../util/sse.js';
+import type { PendingFetchRegistry } from '../../store/pending-fetch.js';
+import type { Logger } from '../../util/logger.js';
+import { fetchNodeOnDemand } from './fetch-on-demand.js';
 
-export function registerGetScreenshot(server: McpServer, store: ContextStore): void {
+export function registerGetScreenshot(
+  server: McpServer,
+  store: ContextStore,
+  sse: SseBroadcaster,
+  pendingFetch: PendingFetchRegistry,
+  log: Logger,
+): void {
   server.registerTool(
     'get_screenshot',
     {
       title: 'Get a screenshot of a Figma node',
       description:
         'Returns a PNG screenshot of the given Figma node, captured by the plugin via ' +
-        '`node.exportAsync({ format: "PNG" })`. The image is the visual source of truth for ' +
-        'parity — always fetch it before writing UI code so you can compare your implementation ' +
-        'against the design. Returns MCP image content (base64 PNG).',
+        '`node.exportAsync({ format: "PNG" })`. The image is your visual reference for ' +
+        'spacing, color, hierarchy, and composition. If the node is not cached, the bridge ' +
+        'asks the plugin to fetch it on demand (same as get_node). Returns MCP image content (base64 PNG).',
       inputSchema: {
         nodeId: z
           .string()
-          .describe('Figma node id to screenshot. Must be a root id from get_selection or a child id from list_nodes.'),
+          .describe('Figma node id, e.g. "42:15" or "6552:15071". Can be any node in the current Figma file.'),
         format: z
           .enum(['PNG', 'SVG'])
           .optional()
@@ -30,7 +40,21 @@ export function registerGetScreenshot(server: McpServer, store: ContextStore): v
     },
     async (args) => {
       const format = args.format ?? 'PNG';
-      const asset = store.getScreenshot(args.nodeId, format);
+      let asset = store.getScreenshot(args.nodeId, format);
+
+      // Cache miss — ask the plugin to fetch the node on demand.
+      // captureNode() captures PNG + SVG assets, so after this the screenshot is cached.
+      if (!asset) {
+        const fetchResult = await fetchNodeOnDemand(args.nodeId, store, sse, pendingFetch, log);
+        if (!fetchResult.ok) {
+          return {
+            isError: true,
+            content: [{ type: 'text', text: fetchResult.error! }],
+          };
+        }
+        asset = store.getScreenshot(args.nodeId, format);
+      }
+
       if (!asset) {
         return {
           isError: true,
@@ -38,12 +62,13 @@ export function registerGetScreenshot(server: McpServer, store: ContextStore): v
             {
               type: 'text',
               text:
-                `No screenshot cached for node "${args.nodeId}". Re-run the plugin's "Push now" ` +
-                `button with the node selected, or call list_nodes to verify the id.`,
+                `Node "${args.nodeId}" was fetched but no ${format} screenshot was captured. ` +
+                `This can happen if the node has zero size or is hidden.`,
             },
           ],
         };
       }
+
       return {
         content: [
           {
