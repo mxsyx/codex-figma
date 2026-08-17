@@ -121,6 +121,31 @@ export class ContextStore {
     return summary;
   }
 
+  /**
+   * Incrementally add a single node (on-demand fetch) without clearing the
+   * existing selection cache. Used by POST /node when the plugin responds to
+   * a fetch-node-request.
+   */
+  async addNode(nodeId: string, node: SerializedNode): Promise<void> {
+    this.nodes.set(nodeId, node);
+    await this.writeJson(join(this.paths.nodesDir, `${safeNodeId(nodeId)}.json`), node);
+    this.log.info('node fetched on demand', { nodeId, type: node.type, nodes: this.nodes.size });
+  }
+
+  /**
+   * Incrementally add assets (PNG/SVG) for an on-demand fetched node without
+   * clearing existing assets.
+   */
+  async addAssets(assets: Record<string, AssetPayload>): Promise<void> {
+    for (const [id, asset] of Object.entries(assets)) {
+      this.assets.set(id, asset);
+      await fs.writeFile(
+        join(this.paths.assetsDir, assetFileName(id, asset.format)),
+        Buffer.from(asset.base64, 'base64'),
+      );
+    }
+  }
+
   // --- Reads --------------------------------------------------------------
 
   getSelection(): SelectionSummary | null {

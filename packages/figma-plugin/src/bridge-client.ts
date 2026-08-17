@@ -7,7 +7,7 @@
  * Note: uses Promise.race for timeouts instead of AbortController, because
  * the Figma plugin sandbox does not expose AbortController as a global.
  */
-import type { CapturedSelection } from './types.js';
+import type { AssetPayload, CapturedSelection, SerializedNode } from './types.js';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_RETRIES = 2;
@@ -65,6 +65,29 @@ export async function postSelection(
     }
   }
   return { ok: false, status: 0, error: lastError ?? 'unknown error' };
+}
+
+/** POST a single on-demand fetched node to the bridge (/node endpoint). */
+export async function postNode(
+  bridgeUrl: string,
+  requestId: string,
+  nodeId: string,
+  result: { found: boolean; node?: SerializedNode; assets?: Record<string, AssetPayload> },
+): Promise<boolean> {
+  const url = joinUrl(bridgeUrl, '/node');
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, nodeId, ...result }),
+      }),
+      DEFAULT_TIMEOUT_MS,
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 /** Light health probe used by the UI to show connected/disconnected state. */

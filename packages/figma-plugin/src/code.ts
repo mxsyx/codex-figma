@@ -6,8 +6,8 @@
  * Sandbox-side state is just config + a debounce timer. All payload state
  * lives in the capture orchestrator and is shipped to the bridge per push.
  */
-import { captureSelection } from './capture.js';
-import { postSelection, probeBridge } from './bridge-client.js';
+import { captureSelection, captureNode } from './capture.js';
+import { postSelection, postNode, probeBridge } from './bridge-client.js';
 import type { UIToCodeMessage } from './messages.js';
 
 const DEFAULT_BRIDGE_URL = 'http://localhost:3845';
@@ -76,6 +76,17 @@ figma.ui.onmessage = async (msg: UIToCodeMessage) => {
       const okProbe = await probeBridge(bridgeUrl);
       figma.ui.postMessage({ kind: 'probe-result', ok: okProbe });
       break;
+    case 'fetch-node': {
+      const result = await captureNode(msg.nodeId);
+      const ok = await postNode(bridgeUrl, msg.requestId, msg.nodeId, result);
+      figma.ui.postMessage({
+        kind: 'fetch-node-result',
+        requestId: msg.requestId,
+        ok,
+        error: ok ? undefined : 'failed to POST node to bridge',
+      });
+      break;
+    }
   }
 };
 

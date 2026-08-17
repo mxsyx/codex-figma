@@ -6,9 +6,11 @@
 import { createServer as createHttpServer, type IncomingMessage, ServerResponse } from 'node:http';
 import type { ContextStore } from './store/context-store.js';
 import type { SseBroadcaster } from './util/sse.js';
+import type { PendingFetchRegistry } from './store/pending-fetch.js';
 import type { Logger } from './util/logger.js';
 import { handleHealth, BRIDGE_VERSION } from './routes/health.js';
 import { handlePostSelection } from './routes/selection.js';
+import { handlePostNode } from './routes/node.js';
 import { handleEvents } from './routes/events.js';
 import { McpRouteHandler } from './routes/mcp.js';
 import { handlePreflight, applyCorsHeaders } from './util/cors.js';
@@ -17,12 +19,13 @@ import { sendJson, sendError } from './util/http.js';
 export interface ServerDeps {
   store: ContextStore;
   sse: SseBroadcaster;
+  pendingFetch: PendingFetchRegistry;
   log: Logger;
   mcp: McpRouteHandler;
 }
 
 export function createServer(deps: ServerDeps): ReturnType<typeof createHttpServer> {
-  const { store, sse, log, mcp } = deps;
+  const { store, sse, pendingFetch, log, mcp } = deps;
 
   const server = createHttpServer(async (req, res) => {
     // CORS preflight — answer before routing.
@@ -44,6 +47,10 @@ export function createServer(deps: ServerDeps): ReturnType<typeof createHttpServ
           await handlePostSelection(req, res, { store, sse, log });
           return;
 
+        case path === '/node' && req.method === 'POST':
+          await handlePostNode(req, res, { store, pendingFetch, log });
+          return;
+
         case path === '/events' && req.method === 'GET':
           handleEvents(req, res, { store, sse });
           return;
@@ -59,6 +66,7 @@ export function createServer(deps: ServerDeps): ReturnType<typeof createHttpServ
             endpoints: {
               health: 'GET /health',
               selection: 'POST /selection',
+              node: 'POST /node',
               events: 'GET /events (SSE)',
               mcp: 'POST /mcp · GET /mcp · DELETE /mcp',
             },

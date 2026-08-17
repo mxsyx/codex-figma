@@ -13,6 +13,7 @@ import { makePaths } from './store/paths.js';
 import { ContextStore } from './store/context-store.js';
 import { createLogger, type LogLevel } from './util/logger.js';
 import { SseBroadcaster } from './util/sse.js';
+import { PendingFetchRegistry } from './store/pending-fetch.js';
 import { McpRouteHandler } from './routes/mcp.js';
 import { BRIDGE_VERSION } from './routes/health.js';
 
@@ -40,8 +41,9 @@ async function main(): Promise<void> {
 
   const store = new ContextStore(paths, log);
   const sse = new SseBroadcaster();
-  const mcp = new McpRouteHandler(store, log);
-  const server = createServer({ store, sse, log, mcp });
+  const pendingFetch = new PendingFetchRegistry(log);
+  const mcp = new McpRouteHandler(store, sse, pendingFetch, log);
+  const server = createServer({ store, sse, pendingFetch, log, mcp });
 
   server.on('error', (err) => {
     log.error('http server error', { error: String(err) });
@@ -54,6 +56,7 @@ async function main(): Promise<void> {
       endpoints: {
         health: `http://${host}:${port}/health`,
         selection: `http://${host}:${port}/selection`,
+        node: `http://${host}:${port}/node`,
         events: `http://${host}:${port}/events`,
         mcp: `http://${host}:${port}/mcp`,
       },

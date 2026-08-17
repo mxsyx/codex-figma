@@ -14,6 +14,8 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ContextStore } from '../store/context-store.js';
+import type { SseBroadcaster } from '../util/sse.js';
+import type { PendingFetchRegistry } from '../store/pending-fetch.js';
 import type { Logger } from '../util/logger.js';
 import { readJsonBody, sendError } from '../util/http.js';
 import { applyCorsHeaders } from '../util/cors.js';
@@ -30,6 +32,8 @@ export class McpRouteHandler {
 
   constructor(
     private readonly store: ContextStore,
+    private readonly sse: SseBroadcaster,
+    private readonly pendingFetch: PendingFetchRegistry,
     private readonly log: Logger,
   ) {}
 
@@ -77,7 +81,7 @@ export class McpRouteHandler {
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => id,
     });
-    const server = createMcpServer(this.store);
+    const server = createMcpServer(this.store, this.sse, this.pendingFetch, this.log);
     transport.onclose = () => {
       this.log.debug('mcp session closed', { sessionId: id });
       this.sessions.delete(id);

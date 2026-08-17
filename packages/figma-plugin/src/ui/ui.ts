@@ -29,6 +29,29 @@ function sendToCode(msg: UIToCodeMessage): void {
   parent.postMessage({ pluginMessage: msg }, '*');
 }
 
+// --- SSE: listen for bridge → plugin commands (e.g. on-demand node fetch) ---
+
+let eventSource: EventSource | null = null;
+
+function connectEvents(bridgeUrl: string): void {
+  eventSource?.close();
+  try {
+    const base = bridgeUrl.replace(/\/+$/, '');
+    eventSource = new EventSource(`${base}/events`);
+    eventSource.addEventListener('fetch-node-request', (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data) as { requestId: string; nodeId: string };
+        sendToCode({ kind: 'fetch-node', requestId: data.requestId, nodeId: data.nodeId });
+      } catch {
+        // Malformed event payload — ignore.
+      }
+    });
+    // EventSource auto-reconnects on error; no manual retry needed.
+  } catch {
+    // EventSource unavailable or invalid URL — on-demand fetch won't work.
+  }
+}
+
 // --- Event wiring --------------------------------------------------------
 
 urlInput.addEventListener('change', () => {
@@ -52,6 +75,7 @@ window.onmessage = (event: MessageEvent) => {
     case 'config':
       urlInput.value = msg.bridgeUrl;
       setAutoPushOn(msg.autoPush);
+      connectEvents(msg.bridgeUrl);
       break;
     case 'capturing':
       pushBtn.disabled = msg.isCapturing;

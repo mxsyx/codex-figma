@@ -95,6 +95,54 @@ export async function captureSelection(): Promise<CaptureResult> {
   };
 }
 
+/**
+ * Capture a single node by id (on-demand fetch). Reuses the same extractors
+ * as captureSelection but does NOT depend on the current selection — the
+ * node is found via figma.getNodeByIdAsync, so any node in the file works.
+ *
+ * Used when the bridge receives a get_node request for a node that isn't in
+ * the selection cache: the bridge broadcasts a fetch-node-request SSE event,
+ * the UI forwards it here, and the result is POSTed back to /node.
+ */
+export async function captureNode(nodeId: string): Promise<{
+  found: boolean;
+  node?: SerializedNode;
+  assets: Record<string, AssetPayload>;
+}> {
+  const node = await figma.getNodeByIdAsync(nodeId);
+  if (!node || !('type' in node)) {
+    return { found: false, assets: {} };
+  }
+
+  const sceneNode = node as SceneNode;
+  const assets: Record<string, AssetPayload> = {};
+
+  // 1. Serialize the tree.
+  const tree = await serializeNodeTree(sceneNode, MAX_TREE_DEPTH);
+
+  // 2. PNG screenshot of the root.
+  const png = await exportPng(sceneNode, 2);
+  if (png) {
+    assets[nodeId] = png;
+  }
+
+  // 3. SVG exports of vector-leaf descendants (icons, vector art).
+  const vectorLeaves = collectVectorLeaves(tree, []);
+  let svgCount = 0;
+  for (const leafId of vectorLeaves) {
+    if (svgCount >= MAX_SVG_ASSETS) break;
+    const leaf = await figma.getNodeByIdAsync(leafId);
+    if (!leaf || !('type' in leaf)) continue;
+    const svg = await exportSvg(leaf as SceneNode);
+    if (svg) {
+      assets[leafId] = svg;
+      svgCount += 1;
+    }
+  }
+
+  return { found: true, node: tree, assets };
+}
+
 function countNodes(node: SerializedNode): number {
   let n = 1;
   if (node.children) {
