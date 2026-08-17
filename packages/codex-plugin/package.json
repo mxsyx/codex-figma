@@ -1,0 +1,13 @@
+{
+  "name": "@codex-figma/codex-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Codex plugin manifest + skills teaching Codex CLI to use the local Figma bridge via MCP.",
+  "files": [
+    ".codex-plugin",
+    "skills",
+    "commands",
+    "agents",
+    "assets"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "codex-figma-bridge",
+  "version": "0.1.0",
+  "description": "Local Figma-to-Codex bridge: implement the user's live Figma selection as code via a localhost MCP server.",
+  "author": {
+    "name": "Codex Figma Bridge",
+    "url": "https://github.com/codex-figma/bridge"
+  },
+  "homepage": "https://github.com/codex-figma/bridge",
+  "repository": "https://github.com/codex-figma/bridge",
+  "license": "MIT",
+  "keywords": [
+    "figma",
+    "design",
+    "design-to-code",
+    "ui-implementation",
+    "mcp",
+    "local-bridge"
+  ],
+  "skills": ["./skills/figma-implement-design"],
+  "interface": {
+    "displayName": "Codex Figma Bridge",
+    "shortDescription": "Implement your current Figma selection as code via a local MCP bridge",
+    "longDescription": "Local Figma-to-Codex bridge. A Figma Desktop plugin captures the user's live selection and ships it to a localhost bridge, which exposes it to Codex via MCP tools (get_selection, get_node, get_screenshot, get_asset). Use this when the user wants to implement, build, port, or code up a Figma design as code — no Figma URL or cloud connector required.",
+    "developerName": "Codex Figma Bridge",
+    "category": "Creativity",
+    "capabilities": ["Interactive", "Read"],
+    "websiteURL": "https://github.com/codex-figma/bridge",
+    "defaultPrompt": [
+      "Implement my current Figma selection as a React component",
+      "Build this Figma screen in my project",
+      "Turn my Figma selection into code"
+    ],
+    "brandColor": "#0D99FF",
+    "composerIcon": "./assets/icon.svg",
+    "logo": "./assets/icon.svg",
+    "logoDark": "./assets/icon.svg",
+    "screenshots": []
+  }
+}

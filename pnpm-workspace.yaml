@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+
+# pnpm 11 build-script allowlist. esbuild needs its postinstall to set up the
+# platform binary; without it, `pnpm -r run build` is blocked by deps check.
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true

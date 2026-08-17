@@ -1,0 +1,8 @@
+# Codex CLI MCP server config — append to ~/.codex/config.toml
+#
+# Points Codex at the local Codex Figma Bridge. The bridge must already be
+# running (cd bridge && npm start) before Codex tries to call any Figma tool.
+
+[mcp_servers.codex-figma-bridge]
+type = "http"
+url = "http://localhost:3845/mcp"

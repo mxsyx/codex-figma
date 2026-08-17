@@ -1,0 +1,21 @@
+{
+  "name": "codex-figma",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local Figma-to-Codex bridge: implement live Figma selections as code via a localhost MCP server.",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "dev": "pnpm --filter @codex-figma/bridge run dev",
+    "start": "pnpm --filter @codex-figma/bridge run start",
+    "clean": "pnpm -r run clean"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Codex Figma Bridge</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: var(--figma-color-bg, #ffffff);
+      --bg-secondary: var(--figma-color-bg-secondary, #f5f5f5);
+      --bg-tertiary: var(--figma-color-bg-tertiary, #ececec);
+      --border: var(--figma-color-border, #e6e6e6);
+      --border-strong: var(--figma-color-border-strong, #d4d4d4);
+      --text: var(--figma-color-text, #1a1a1a);
+      --text-secondary: var(--figma-color-text-secondary, #6b6b6b);
+      --text-tertiary: var(--figma-color-text-tertiary, #999999);
+      --accent: var(--figma-color-bg-brand, #0d99ff);
+      --accent-hover: var(--figma-color-bg-brand-hover, #0a87e0);
+      --good: #14ae5c;
+      --bad: #f24822;
+      --warn: #ffa629;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--figma-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+      font-size: 11px;
+      line-height: 1.45;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 12px;
+    }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .row.between { justify-content: space-between; }
+    label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: block;
+      margin-bottom: 4px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 6px 8px;
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    button {
+      padding: 6px 12px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      background: var(--accent);
+      color: #ffffff;
+      font: inherit;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled {
+      background: var(--bg-tertiary);
+      color: var(--text-tertiary);
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: var(--bg-secondary);
+      color: var(--text);
+      border-color: var(--border-strong);
+    }
+    button.secondary:hover { background: var(--bg-tertiary); }
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .toggle .track {
+      width: 28px;
+      height: 16px;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      position: relative;
+      transition: background 120ms ease;
+      border: 1px solid var(--border-strong);
+    }
+    .toggle .knob {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 12px;
+      height: 12px;
+      background: var(--text-secondary);
+      border-radius: 50%;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+    .toggle.on .track { background: var(--accent); border-color: var(--accent); }
+    .toggle.on .knob { transform: translateX(12px); background: #ffffff; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 500;
+      border: 1px solid var(--border-strong);
+    }
+    .pill.good { color: var(--good); border-color: var(--good); }
+    .pill.bad { color: var(--bad); border-color: var(--bad); }
+    .pill.warn { color: var(--warn); border-color: var(--warn); }
+    .pill .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .status-line {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .status-line strong { color: var(--text); font-weight: 500; }
+    .error-box {
+      padding: 8px;
+      border-radius: 4px;
+      background: rgba(242, 72, 34, 0.08);
+      border: 1px solid rgba(242, 72, 34, 0.25);
+      color: var(--bad);
+      font-size: 10.5px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .hint {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+    }
+    .hint code {
+      background: var(--bg-secondary);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: var(--figma-font-family-code, ui-monospace, SFMono-Regular, monospace);
+      font-size: 10px;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 4px 0;
+    }
+    .spinner {
+      width: 10px;
+      height: 10px;
+      border: 1.5px solid var(--border-strong);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 700ms linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="row between">
+      <strong>Codex Figma Bridge</strong>
+      <span id="status-pill" class="pill warn"><span class="dot"></span><span id="status-text">checking…</span></span>
+    </div>
+
+    <div>
+      <label for="bridge-url">Bridge URL</label>
+      <input id="bridge-url" type="text" placeholder="http://localhost:3845" />
+    </div>
+
+    <div class="row between">
+      <label class="toggle" id="auto-push-toggle">
+        <span class="track"><span class="knob"></span></span>
+        <span>Auto-push on selection change</span>
+      </label>
+    </div>
+
+    <div class="row" style="gap: 8px;">
+      <button id="push-btn" style="flex: 1;">Push now</button>
+      <button id="probe-btn" class="secondary">Recheck</button>
+    </div>
+
+    <div id="last-push" class="status-line" style="display: none;">
+      Last push: <strong id="push-time">—</strong>
+      <br />
+      <span id="push-stats"></span>
+    </div>
+
+    <div id="error" class="error-box" style="display: none;"></div>
+
+    <hr />
+
+    <div class="hint">
+      Start the bridge first:
+      <code>cd bridge && npm start</code>
+      <br />
+      Then in Codex CLI, ask it to "implement my current Figma selection".
+    </div>
+  </div>
+
+  <!-- {{UI_JS}} -->
+</body>
+</html>

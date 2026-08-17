@@ -1,0 +1,47 @@
+# AGENTS.md — Figma → Code Workflow
+
+> Drop this file into your target repo as `AGENTS.md` (or merge into an existing one) so Codex
+> knows how to drive the local Codex Figma Bridge when implementing Figma designs.
+
+## Figma workflow
+
+When the user asks to implement, build, port, or code up a Figma design:
+
+1. **Always call `get_selection` first.** It returns the user's current Figma selection (file, page, selected node ids + boxes). Never assume what's selected — ask if it's empty.
+2. **Pull the full node tree with `get_node`** for each selected root. Use `depth: 5` (or higher for deeply nested screens) and all `include*` flags on.
+3. **Pull a screenshot with `get_screenshot`** for each selected root. The PNG is the source of truth for visual parity.
+4. **Pull icons with `get_asset`** for every VECTOR / BOOLEAN_OPERATION descendant. Commit the SVG bytes to the project's assets directory — never hand-write SVG, never substitute an icon library.
+5. **Map Figma variables** via `get_variables` onto the project's token system (CSS variables, Tailwind theme, design-tokens.json).
+
+If `get_selection` returns "No Figma selection has been captured yet", ask the user to:
+1. Open Figma Desktop and select a frame.
+2. Open the Codex Figma Bridge plugin (Plugins → Development → Codex Figma Bridge).
+3. Click "Push now" (or enable auto-push).
+
+## Component reuse rules
+
+<!-- TODO: replace these placeholders with your project's actual conventions. -->
+
+- Component sources: `src/components/ui` (primitives), `src/features/*/components` (feature-specific).
+- Styling: Tailwind utility classes; map Figma colors/spacing to the existing Tailwind theme, do NOT introduce one-off hex values.
+- Icons: `src/assets/icons/*.svg`; prefer matching existing icons by glyph (not just name) before falling back to a Figma-exported asset.
+- Tokens: `src/styles/tokens.css` — extend it only when a Figma variable has no existing match.
+
+## Asset handling
+
+- Commit every Figma-exported SVG to `src/assets/icons/` (or `src/assets/illustrations/` for non-icons).
+- Name files after the Figma node, slugged: `icon-arrow-right.svg` not `Icon/Arrow Right.svg`.
+- Reference committed assets in code — never hot-link to the bridge's `http://localhost:3845/...` URLs (they're local-only and won't be available at runtime).
+
+## Parity reporting
+
+After implementation, report:
+1. **What matches** — spacing, typography, color, hierarchy, interactions.
+2. **What differs** — a11y adjustments, project-convention deviations, technical constraints.
+3. **Verification** — lint, typecheck, preview build status.
+4. **Follow-ups** — anything that needs a designer's input or a second pass.
+
+## Out of scope
+
+- Writing back to Figma — the local bridge is read-only. Use Figma's cloud MCP connector for that direction.
+- Multi-page capture — v1 captures the current page only. Switch pages in Figma and re-push.
