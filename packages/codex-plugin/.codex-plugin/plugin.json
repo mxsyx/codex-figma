@@ -18,6 +18,7 @@
     "local-bridge"
   ],
   "skills": ["./skills/figma-implement-design"],
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Codex Figma Bridge",
     "shortDescription": "Implement your current Figma selection as code via a local MCP bridge",
