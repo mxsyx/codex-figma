@@ -94,9 +94,10 @@ export const stylesInfoSchema = z.object({
 
 export const textInfoSchema = z.object({
   characters: z.string(),
-  fontName: z.object({ family: z.string(), style: z.string() }),
-  fontSize: z.number(),
-  fontWeight: z.number().optional(),
+  // Figma returns null for fontName/fontSize when a TEXT node has mixed fonts.
+  fontName: z.object({ family: z.string(), style: z.string() }).nullable(),
+  fontSize: z.number().nullable(),
+  fontWeight: z.number().nullable().optional(),
   lineHeight: z.union([
     z.object({ unit: z.string(), value: z.number().optional() }),
     z.string(),
