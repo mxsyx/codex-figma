@@ -7,7 +7,7 @@
  * Keep this file dependency-free except for zod so it stays easy to reason
  * about. Derived TypeScript types are exported alongside the schemas.
  */
-import { z } from 'zod';
+import { z } from "zod";
 
 // --- Primitives -----------------------------------------------------------
 
@@ -19,7 +19,7 @@ export const colorSchema = z.object({
 });
 
 export const solidPaintSchema = z.object({
-  type: z.literal('SOLID'),
+  type: z.literal("SOLID"),
   color: colorSchema,
   opacity: z.number().optional(),
   visible: z.boolean().optional(),
@@ -30,15 +30,17 @@ export const paintSchema = z.union([
   z.object({ type: z.string() }).passthrough(), // gradient / image / video — keep raw
 ]);
 
-export const effectSchema = z.object({
-  type: z.string(),
-  visible: z.boolean().optional(),
-  radius: z.number().optional(),
-  color: colorSchema.optional(),
-  offset: z.object({ x: z.number(), y: z.number() }).optional(),
-  spread: z.number().optional(),
-  blendMode: z.string().optional(),
-}).passthrough();
+export const effectSchema = z
+  .object({
+    type: z.string(),
+    visible: z.boolean().optional(),
+    radius: z.number().optional(),
+    color: colorSchema.optional(),
+    offset: z.object({ x: z.number(), y: z.number() }).optional(),
+    spread: z.number().optional(),
+    blendMode: z.string().optional(),
+  })
+  .passthrough();
 
 export const cornerRadiusSchema = z.union([
   z.number(),
@@ -52,94 +54,126 @@ export const cornerRadiusSchema = z.union([
 
 // --- Node tree ------------------------------------------------------------
 
-export const layoutInfoSchema = z.object({
-  layoutMode: z.enum(['NONE', 'HORIZONTAL', 'VERTICAL', 'GRID']),
-  primaryAxisSizingMode: z.string().optional(),
-  counterAxisSizingMode: z.string().optional(),
-  primaryAxisAlignItems: z.string().optional(),
-  counterAxisAlignItems: z.string().optional(),
-  paddingTop: z.number().optional(),
-  paddingRight: z.number().optional(),
-  paddingBottom: z.number().optional(),
-  paddingLeft: z.number().optional(),
-  itemSpacing: z.number().optional(),
-  itemReverseZIndex: z.boolean().optional(),
-  layoutWrap: z.string().optional(),
-  counterAxisSpacing: z.number().optional(),
-  layoutAlign: z.string().optional(),
-  layoutGrow: z.number().optional(),
-  layoutPositioning: z.string().optional(),
-  absoluteBoundingBox: z.object({
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-  }).optional(),
-  cssHint: z.string(),
-}).passthrough();
+export const layoutInfoSchema = z
+  .object({
+    layoutMode: z.enum(["NONE", "HORIZONTAL", "VERTICAL", "GRID"]),
+    primaryAxisSizingMode: z.string().optional(),
+    counterAxisSizingMode: z.string().optional(),
+    primaryAxisAlignItems: z.string().optional(),
+    counterAxisAlignItems: z.string().optional(),
+    paddingTop: z.number().optional(),
+    paddingRight: z.number().optional(),
+    paddingBottom: z.number().optional(),
+    paddingLeft: z.number().optional(),
+    itemSpacing: z.number().optional(),
+    itemReverseZIndex: z.boolean().optional(),
+    layoutWrap: z.string().optional(),
+    counterAxisSpacing: z.number().optional(),
+    layoutAlign: z.string().optional(),
+    layoutGrow: z.number().optional(),
+    layoutPositioning: z.string().optional(),
+    absoluteBoundingBox: z
+      .object({
+        x: z.number(),
+        y: z.number(),
+        width: z.number(),
+        height: z.number(),
+      })
+      .optional(),
+    cssHint: z.string(),
+  })
+  .passthrough();
 
-export const stylesInfoSchema = z.object({
-  fills: z.array(paintSchema).optional(),
-  strokes: z.array(paintSchema).optional(),
-  strokeWeight: z.union([z.number(), z.array(z.number())]).optional(),
-  strokeAlign: z.string().optional(),
-  strokeCap: z.string().optional(),
-  strokeJoin: z.string().optional(),
-  effects: z.array(effectSchema).optional(),
-  cornerRadius: cornerRadiusSchema.optional(),
-  opacity: z.number().optional(),
-  blendMode: z.string().optional(),
-  backgroundColor: colorSchema.nullable().optional(),
-}).passthrough();
+export const stylesInfoSchema = z
+  .object({
+    fills: z.array(paintSchema).optional(),
+    strokes: z.array(paintSchema).optional(),
+    strokeWeight: z.union([z.number(), z.array(z.number())]).optional(),
+    strokeAlign: z.string().optional(),
+    strokeCap: z.string().optional(),
+    strokeJoin: z.string().optional(),
+    effects: z.array(effectSchema).optional(),
+    cornerRadius: cornerRadiusSchema.optional(),
+    opacity: z.number().optional(),
+    blendMode: z.string().optional(),
+    backgroundColor: colorSchema.nullable().optional(),
+  })
+  .passthrough();
 
-export const textInfoSchema = z.object({
-  characters: z.string(),
-  // Figma returns null for fontName/fontSize when a TEXT node has mixed fonts.
-  fontName: z.object({ family: z.string(), style: z.string() }).nullable(),
-  fontSize: z.number().nullable(),
-  fontWeight: z.number().nullable().optional(),
-  lineHeight: z.union([
-    z.object({ unit: z.string(), value: z.number().optional() }),
-    z.string(),
-  ]).nullable().optional(),
-  letterSpacing: z.union([
-    z.object({ unit: z.string(), value: z.number().optional() }),
-    z.string(),
-  ]).nullable().optional(),
-  textCase: z.string().optional(),
-  textDecoration: z.string().optional(),
-  textAutoResize: z.string().optional(),
-  textAlignHorizontal: z.string().optional(),
-  textAlignVertical: z.string().optional(),
-}).passthrough();
+export const textInfoSchema = z
+  .object({
+    characters: z.string(),
+    // Figma returns null for fontName/fontSize when a TEXT node has mixed fonts;
+    // the plugin's safe() may omit the field entirely (undefined) when null.
+    fontName: z.object({ family: z.string(), style: z.string() }).nullish(),
+    fontSize: z.number().nullish(),
+    fontWeight: z.number().nullish(),
+    lineHeight: z
+      .union([
+        z.object({ unit: z.string(), value: z.number().optional() }),
+        z.string(),
+      ])
+      .nullable()
+      .optional(),
+    letterSpacing: z
+      .union([
+        z.object({ unit: z.string(), value: z.number().optional() }),
+        z.string(),
+      ])
+      .nullable()
+      .optional(),
+    textCase: z.string().optional(),
+    textDecoration: z.string().optional(),
+    textAutoResize: z.string().optional(),
+    textAlignHorizontal: z.string().optional(),
+    textAlignVertical: z.string().optional(),
+  })
+  .passthrough();
 
-export const boundVariableSchema = z.object({
-  property: z.string(),
-  variableId: z.string(),
-  name: z.string(),
-  collectionId: z.string().optional(),
-  collectionName: z.string().optional(),
-  modeId: z.string().nullable().optional(),
-  modeName: z.string().nullable().optional(),
-  resolvedValue: z.unknown(),
-  aliasOf: z.string().nullable().optional(),
-}).passthrough();
-
-export const componentInfoSchema = z.object({
-  kind: z.enum(['COMPONENT', 'INSTANCE', 'COMPONENT_SET']),
-  mainComponent: z.object({
-    id: z.string(),
-    name: z.string(),
-    key: z.string().optional(),
-  }).nullable(),
-  componentPropertyDefinitions: z.record(z.string(), z.unknown()).nullable().optional(),
-  componentPropertyReferences: z.record(z.string(), z.string()).nullable().optional(),
-  overrides: z.array(z.object({
+export const boundVariableSchema = z
+  .object({
     property: z.string(),
-    oldValue: z.unknown(),
-    newValue: z.unknown(),
-  })).nullable().optional(),
-}).passthrough();
+    variableId: z.string(),
+    name: z.string(),
+    collectionId: z.string().optional(),
+    collectionName: z.string().optional(),
+    modeId: z.string().nullable().optional(),
+    modeName: z.string().nullable().optional(),
+    resolvedValue: z.unknown(),
+    aliasOf: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+export const componentInfoSchema = z
+  .object({
+    kind: z.enum(["COMPONENT", "INSTANCE", "COMPONENT_SET"]),
+    mainComponent: z
+      .object({
+        id: z.string(),
+        name: z.string(),
+        key: z.string().optional(),
+      })
+      .nullable(),
+    componentPropertyDefinitions: z
+      .record(z.string(), z.unknown())
+      .nullable()
+      .optional(),
+    componentPropertyReferences: z
+      .record(z.string(), z.string())
+      .nullable()
+      .optional(),
+    overrides: z
+      .array(
+        z.object({
+          property: z.string(),
+          oldValue: z.unknown(),
+          newValue: z.unknown(),
+        }),
+      )
+      .nullable()
+      .optional(),
+  })
+  .passthrough();
 
 // Recursive schema — declared lazily so the type matches the runtime tree.
 export type SerializedNode = {
@@ -162,30 +196,32 @@ export type SerializedNode = {
 };
 
 export const serializedNodeSchema: z.ZodType<SerializedNode> = z.lazy(() =>
-  z.object({
-    id: z.string(),
-    name: z.string(),
-    type: z.string(),
-    visible: z.boolean(),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-    rotation: z.number(),
-    depth: z.number(),
-    layout: layoutInfoSchema.nullable(),
-    styles: stylesInfoSchema.nullable(),
-    text: textInfoSchema.nullable(),
-    variables: z.array(boundVariableSchema),
-    component: componentInfoSchema.nullable(),
-    children: z.array(serializedNodeSchema).nullable(),
-  }).passthrough(),
+  z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      type: z.string(),
+      visible: z.boolean(),
+      x: z.number(),
+      y: z.number(),
+      width: z.number(),
+      height: z.number(),
+      rotation: z.number(),
+      depth: z.number(),
+      layout: layoutInfoSchema.nullable(),
+      styles: stylesInfoSchema.nullable(),
+      text: textInfoSchema.nullable(),
+      variables: z.array(boundVariableSchema),
+      component: componentInfoSchema.nullable(),
+      children: z.array(serializedNodeSchema).nullable(),
+    })
+    .passthrough(),
 );
 
 // --- Assets ---------------------------------------------------------------
 
 export const assetPayloadSchema = z.object({
-  format: z.enum(['PNG', 'SVG']),
+  format: z.enum(["PNG", "SVG"]),
   mime: z.string(),
   base64: z.string(),
   width: z.number().nullable().optional(),
@@ -194,31 +230,35 @@ export const assetPayloadSchema = z.object({
 
 // --- Selection summary ----------------------------------------------------
 
-export const selectionEntrySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  type: z.string(),
-  x: z.number(),
-  y: z.number(),
-  width: z.number(),
-  height: z.number(),
-  parentId: z.string().nullable(),
-  visible: z.boolean(),
-}).passthrough();
+export const selectionEntrySchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    type: z.string(),
+    x: z.number(),
+    y: z.number(),
+    width: z.number(),
+    height: z.number(),
+    parentId: z.string().nullable(),
+    visible: z.boolean(),
+  })
+  .passthrough();
 
 // --- Top-level payload ----------------------------------------------------
 
-export const capturedSelectionSchema = z.object({
-  fileKey: z.string(),
-  fileName: z.string(),
-  pageId: z.string(),
-  pageName: z.string(),
-  capturedAt: z.string(),
-  pluginVersion: z.string(),
-  selection: z.array(selectionEntrySchema),
-  nodes: z.record(z.string(), serializedNodeSchema),
-  assets: z.record(z.string(), assetPayloadSchema),
-}).passthrough();
+export const capturedSelectionSchema = z
+  .object({
+    fileKey: z.string(),
+    fileName: z.string(),
+    pageId: z.string(),
+    pageName: z.string(),
+    capturedAt: z.string(),
+    pluginVersion: z.string(),
+    selection: z.array(selectionEntrySchema),
+    nodes: z.record(z.string(), serializedNodeSchema),
+    assets: z.record(z.string(), assetPayloadSchema),
+  })
+  .passthrough();
 
 export type CapturedSelection = z.infer<typeof capturedSelectionSchema>;
 export type SelectionEntry = z.infer<typeof selectionEntrySchema>;
