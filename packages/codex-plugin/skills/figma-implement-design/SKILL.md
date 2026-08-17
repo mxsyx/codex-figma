@@ -91,14 +91,14 @@ Apply design hints in this order — earlier sources override later ones:
 
 ## Tool Reference (quick)
 
-| Tool | When to call | Input | Output |
-|------|-------------|-------|--------|
-| `get_selection` | Always first — every workflow | (none) | Selection summary: fileKey, page, selectedNodes[] |
-| `get_node` | For each selected root | `{ nodeId, depth?, includeStyles?, includeVariables?, includeText? }` | Full serialized node tree |
-| `get_screenshot` | For each selected root; on every parity check | `{ nodeId, format? }` | PNG image content (base64) |
-| `get_asset` | For every VECTOR / BOOLEAN_OPERATION descendant | `{ nodeId, format? }` | SVG (preferred) or PNG image content |
-| `list_nodes` | When you need to find specific nodes by type or name | `{ type?, name? }` | Array of `{id, name, type, depth, parentId}` |
-| `get_variables` | When mapping Figma tokens onto the project's token system | `{ collectionName? }` | Array of bound-variable rows |
+| Tool             | When to call                                              | Input                                                                 | Output                                            |
+| ---------------- | --------------------------------------------------------- | --------------------------------------------------------------------- | ------------------------------------------------- |
+| `get_selection`  | Always first — every workflow                             | (none)                                                                | Selection summary: fileKey, page, selectedNodes[] |
+| `get_node`       | For each selected root                                    | `{ nodeId, depth?, includeStyles?, includeVariables?, includeText? }` | Full serialized node tree                         |
+| `get_screenshot` | For each selected root                                    | `{ nodeId, format? }`                                                 | PNG image content (base64)                        |
+| `get_asset`      | For every VECTOR / BOOLEAN_OPERATION descendant           | `{ nodeId, format? }`                                                 | SVG (preferred) or PNG image content              |
+| `list_nodes`     | When you need to find specific nodes by type or name      | `{ type?, name? }`                                                    | Array of `{id, name, type, depth, parentId}`      |
+| `get_variables`  | When mapping Figma tokens onto the project's token system | `{ collectionName? }`                                                 | Array of bound-variable rows                      |
 
 The MCP resource `figma://selection/current` mirrors `get_selection` — use it if your client prefers the resource surface.
 

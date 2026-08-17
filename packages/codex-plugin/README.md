@@ -14,8 +14,7 @@ codex-plugin/
 ├── commands/
 │   └── implement-from-figma.md            # /implement-from-figma slash command
 ├── agents/
-│   ├── figma-implementation-agent.md      # for substantial UI work
-│   └── design-parity-review-agent.md      # for post-implementation parity review
+│   └── figma-implementation-agent.md      # for substantial UI work
 ├── assets/
 │   └── icon.svg                           # plugin icon (Figma-blue bridge glyph)
 └── README.md                              # this file
@@ -29,7 +28,7 @@ The plugin assumes the following tools are available via the `codex-figma-bridge
 |------|---------|
 | `get_selection` | Returns the user's current Figma selection summary (file, page, selected node ids + boxes). Always call first. |
 | `get_node` | Returns the full serialized node tree for one node id. |
-| `get_screenshot` | Returns a PNG screenshot of one node (visual source of truth for parity). |
+| `get_screenshot` | Returns a PNG screenshot of one node (visual reference for layout/colors/typography). |
 | `get_asset` | Returns SVG/PNG bytes for icons and vector art. |
 | `list_nodes` | Searches cached trees by type or name substring. |
 | `get_variables` | Lists design-token variable bindings across the cached trees. |
