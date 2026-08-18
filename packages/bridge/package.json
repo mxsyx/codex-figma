@@ -1,10 +1,45 @@
 {
   "name": "@codex-figma/bridge",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Local HTTP bridge + MCP server that exposes the user's live Figma selection to Codex CLI.",
   "type": "module",
+  "license": "MIT",
+  "author": {
+    "name": "Mxsyx",
+    "email": "mxsyxin@gmail.com"
+  },
+  "homepage": "https://github.com/mxsyx/codex-figma#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mxsyx/codex-figma.git",
+    "directory": "packages/bridge"
+  },
+  "bugs": {
+    "url": "https://github.com/mxsyx/codex-figma/issues"
+  },
+  "keywords": [
+    "figma",
+    "codex",
+    "mcp",
+    "design-to-code",
+    "design2code",
+    "bridge",
+    "localhost"
+  ],
   "bin": {
     "codex-figma-bridge": "./bin/codex-figma-bridge.mjs"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -21,8 +56,5 @@
     "@types/node": "^22.10.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
-  },
-  "engines": {
-    "node": ">=20"
   }
 }
