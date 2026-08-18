@@ -4,10 +4,10 @@
   "description": "Local Figma-to-Codex bridge: implement the user's live Figma selection as code via a localhost MCP server.",
   "author": {
     "name": "Codex Figma Bridge",
-    "url": "https://github.com/codex-figma/bridge"
+    "url": "https://github.com/mxsyx/codex-figma"
   },
-  "homepage": "https://github.com/codex-figma/bridge",
-  "repository": "https://github.com/codex-figma/bridge",
+  "homepage": "https://github.com/mxsyx/codex-figma",
+  "repository": "https://github.com/mxsyx/codex-figma",
   "license": "MIT",
   "keywords": [
     "figma",
@@ -26,7 +26,7 @@
     "developerName": "Codex Figma Bridge",
     "category": "Creativity",
     "capabilities": ["Interactive", "Read"],
-    "websiteURL": "https://github.com/codex-figma/bridge",
+    "websiteURL": "https://github.com/mxsyx/codex-figma",
     "defaultPrompt": [
       "Implement my current Figma selection as a React component",
       "Build this Figma screen in my project",
