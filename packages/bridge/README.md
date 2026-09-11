@@ -4,6 +4,7 @@ Always-on HTTP server + MCP server that sits between the Figma plugin and Codex 
 
 ```
 Figma Plugin ──POST /selection──▶ Bridge ──MCP (POST /mcp)──▶ Codex CLI
+Codex CLI ──generate_design────▶ Bridge ──SSE───────────────▶ Figma Plugin
                                   │
                                   └── caches to disk:
                                       current-selection.json
@@ -30,6 +31,8 @@ npm run dev
 |---------------|---------|
 | `GET /health` | Liveness + cache state. Returns `{ ok, version, capturedAt, fileKey, pageName, selectionCount, rootCount }`. |
 | `POST /selection` | Receive a captured selection from the Figma plugin. Body validated against the zod schema in `src/store/schema.ts`. |
+| `POST /design/result` | Receive the result after the Figma plugin generates a Codex-provided design. |
+| `POST /components` | Receive components discovered on a named Figma page. |
 | `GET /events` | Server-Sent Events stream of `selection-change` events. Useful for a future live-preview UI. |
 | `POST /mcp` | MCP Streamable HTTP — JSON-RPC requests (initialize, tools/call, etc.). |
 | `GET /mcp` | MCP SSE stream for server-initiated notifications (requires `mcp-session-id` header). |
@@ -45,6 +48,8 @@ npm run dev
 | `get_asset` | `{ nodeId, format? }` | SVG (preferred) or PNG image content. |
 | `list_nodes` | `{ type?, name? }` | Search hits. |
 | `get_variables` | `{ collectionName? }` | Bound variable rows. |
+| `generate_design` | `{ design }` | Sends a structured design to the plugin and waits for the one-click generation result. |
+| `list_components` | `{ pageName, query? }` | Asks the plugin to scan a named page, caches component trees, and returns component metadata. |
 
 Plus the MCP resource `figma://selection/current`.
 

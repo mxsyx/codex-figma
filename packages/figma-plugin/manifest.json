@@ -8,7 +8,7 @@
   "documentAccess": "dynamic-page",
   "networkAccess": {
     "allowedDomains": ["http://localhost:3845"],
-    "reasoning": "Posts the user's current Figma selection (node tree, styles, text, variables, components, screenshots) to a local Codex Figma Bridge running on the user's machine. The bridge then exposes the context to Codex CLI via MCP. No data leaves the user's machine."
+    "reasoning": "Posts the user's current Figma selection (node tree, styles, text, variables, components, screenshots) to a local Codex Figma Bridge, receives one-click design generation requests from Codex through the same bridge, and posts generation results back. No data leaves the user's machine."
   },
   "permissions": [],
   "capabilities": [],

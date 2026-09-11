@@ -1,7 +1,7 @@
 {
   "name": "@codex-figma/figma-plugin",
   "version": "0.0.1",
-  "description": "Figma Desktop plugin that captures the live selection and ships it to the local Codex Figma Bridge.",
+  "description": "Figma Desktop plugin that captures the live selection and generates structured designs requested by Codex.",
   "license": "MIT",
   "private": true,
   "scripts": {

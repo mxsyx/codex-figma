@@ -7,7 +7,15 @@
  * lives in the capture orchestrator and is shipped to the bridge per push.
  */
 import { captureSelection, captureNode } from './capture.js';
-import { postSelection, postNode, probeBridge } from './bridge-client.js';
+import {
+  postSelection,
+  postNode,
+  postDesignResult,
+  postComponents,
+  probeBridge,
+} from './bridge-client.js';
+import { generateDesign } from './generate-design.js';
+import { captureComponents } from './extract/components-page.js';
 import type { UIToCodeMessage } from './messages.js';
 
 const DEFAULT_BRIDGE_URL = 'http://localhost:3845';
@@ -85,6 +93,53 @@ figma.ui.onmessage = async (msg: UIToCodeMessage) => {
         ok,
         error: ok ? undefined : 'failed to POST node to bridge',
       });
+      break;
+    }
+    case 'generate-design': {
+      try {
+        const rootId = await generateDesign(msg.design);
+        const posted = await postDesignResult(bridgeUrl, msg.requestId, { ok: true, rootId });
+        figma.ui.postMessage({
+          kind: 'generate-design-result',
+          requestId: msg.requestId,
+          ok: posted,
+          rootId,
+          error: posted ? undefined : 'Design created, but the bridge could not be notified.',
+        });
+      } catch (err) {
+        const error = String(err instanceof Error ? err.message : err);
+        await postDesignResult(bridgeUrl, msg.requestId, { ok: false, error });
+        figma.ui.postMessage({
+          kind: 'generate-design-result',
+          requestId: msg.requestId,
+          ok: false,
+          error,
+        });
+      }
+      break;
+    }
+    case 'list-components': {
+      const result = await captureComponents(
+        msg.requestId,
+        msg.pageName,
+        msg.query,
+      );
+      const posted = await postComponents(bridgeUrl, result);
+      if (!posted) {
+        figma.ui.postMessage({
+          kind: 'components-result',
+          requestId: msg.requestId,
+          ok: false,
+          error: 'Component scan completed, but the bridge could not be notified.',
+        });
+      } else {
+        figma.ui.postMessage({
+          kind: 'components-result',
+          requestId: msg.requestId,
+          ok: true,
+          componentCount: result.components.length,
+        });
+      }
       break;
     }
   }

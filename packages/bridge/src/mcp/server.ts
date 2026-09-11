@@ -1,5 +1,5 @@
 /**
- * Factory that wires a fresh McpServer with all six tools registered against
+ * Factory that wires a fresh McpServer with all tools registered against
  * the shared ContextStore. Called once per MCP session by routes/mcp.ts.
  *
  * Tools:
@@ -17,6 +17,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ContextStore } from "../store/context-store.js";
 import type { SseBroadcaster } from "../util/sse.js";
 import type { PendingFetchRegistry } from "../store/pending-fetch.js";
+import type { PendingDesignRegistry } from "../store/pending-design.js";
+import type { PendingComponentsRegistry } from "../store/pending-components.js";
 import type { Logger } from "../util/logger.js";
 import { registerGetSelection } from "./tools/get-selection.js";
 import { registerGetNode } from "./tools/get-node.js";
@@ -24,12 +26,16 @@ import { registerGetScreenshot } from "./tools/get-screenshot.js";
 import { registerGetAsset } from "./tools/get-asset.js";
 import { registerListNodes } from "./tools/list-nodes.js";
 import { registerGetVariables } from "./tools/get-variables.js";
+import { registerGenerateDesign } from "./tools/generate-design.js";
+import { registerListComponents } from "./tools/list-components.js";
 import { BRIDGE_VERSION } from "../routes/health.js";
 
 export function createMcpServer(
   store: ContextStore,
   sse: SseBroadcaster,
   pendingFetch: PendingFetchRegistry,
+  pendingDesign: PendingDesignRegistry,
+  pendingComponents: PendingComponentsRegistry,
   log: Logger,
 ): McpServer {
   const server = new McpServer(
@@ -46,8 +52,11 @@ export function createMcpServer(
         "Call get_selection to see the current selection, or call get_node with any node id " +
         "to fetch it on demand (the plugin uses figma.getNodeByIdAsync to find and capture it). " +
         "get_node / get_screenshot / get_asset / list_nodes / get_variables all work on the " +
-        'cached node tree. If a tool returns "plugin not connected", ask the user to open the ' +
-        "Codex Figma Bridge plugin in Figma Desktop.",
+        'cached node tree. Call list_components to scan and cache every component on a named ' +
+        'Figma page, then use get_node with a returned component id. Call generate_design to ' +
+        'send a structured intent-derived design to ' +
+        'the plugin for one-click generation. If a tool returns "plugin not connected", ask the ' +
+        "user to open the Codex Figma Bridge plugin in Figma Desktop.",
     },
   );
 
@@ -57,6 +66,8 @@ export function createMcpServer(
   registerGetAsset(server, store, sse, pendingFetch, log);
   registerListNodes(server, store);
   registerGetVariables(server, store);
+  registerGenerateDesign(server, sse, pendingDesign, log);
+  registerListComponents(server, sse, pendingComponents, log);
 
   server.registerResource(
     "current-selection",

@@ -1,6 +1,6 @@
 # Codex Figma Bridge
 
-把你的 **当前 Figma 选区** 还原成代码，写进任意本地仓库 —— 无需 Figma URL、无需云连接器、无需 Dev Seat。
+把你的 **当前 Figma 选区** 还原成代码，或把 **自然语言产品意图** 生成结构化 Figma 设计，写进任意本地仓库 —— 无需 Figma URL、无需云连接器、无需 Dev Seat。
 
 一个 Figma Desktop 插件采集用户当前选中的内容（节点树、样式、文字、变量、组件、截图、SVG 图标），通过 HTTP 上报给运行在 `localhost:3845` 的 **本地 Bridge**。Bridge 缓存这些上下文，并通过一个 **MCP server** 暴露给 Codex CLI。Codex 读取节点信息 + 截图，修改本地仓库，然后运行 lint / typecheck。
 
@@ -38,7 +38,8 @@
 │   ├─ get_screenshot           │
 │   ├─ get_asset                │
 │   ├─ list_nodes               │
-│   └─ get_variables            │
+│   ├─ get_variables            │
+│   └─ generate_design          │
 └──────────────┬────────────────┘
                │ MCP (POST /mcp)
                ▼
@@ -181,6 +182,24 @@ Codex 会：
 5. 把设计适配到你的项目技术栈（复用已有组件 + tokens）。
 6. 运行 lint / typecheck / 预览，并报告还原度。
 
+### 从自然语言生成设计
+
+保持 Bridge 已启动，并在 Figma Desktop 中打开 **Codex Figma Bridge** 插件：
+
+```bash
+codex "Generate a Figma design for an admin dashboard that shows revenue KPIs, churn risk, and recent payments"
+```
+
+Codex 会加载 `figma-generate-design-from-intent` skill，把业务意图转换为结构化设计规格并调用 `generate_design`。Figma 插件会显示待生成设计，你点击 **Generate design** 后，插件会创建一个业务命名的根画板，并把各个区域创建为业务命名的 Figma Group（例如 `Revenue KPIs`、`Churn Risk`、`Recent Payments`）。
+
+如果用户指定组件库和目标页面，例如：
+
+```bash
+codex "使用 Polaris 页面下的 Button、Badge 和 Card 组件，为客户收入后台生成设计，并写入 ShopifyApp 页面"
+```
+
+Codex 会先调用 `list_components` 读取 `Polaris` 页面下的组件，并用 `get_node` 查看指定组件的完整结构和属性定义；生成规格会使用组件 `componentId` 创建实例，并把根画板写入 `targetPage: "ShopifyApp"`。目标页面不存在时，Figma 插件会自动创建。
+
 ## MCP 工具
 
 | 工具             | 入参                                                                  | 返回                                 |
@@ -191,6 +210,8 @@ Codex 会：
 | `get_asset`      | `{ nodeId, format? }`                                                 | SVG（图标首选）或 PNG 图片内容。     |
 | `list_nodes`     | `{ type?, name? }`                                                    | 在缓存的树里搜索命中的节点。         |
 | `get_variables`  | `{ collectionName? }`                                                 | 设计 token 绑定关系。                |
+| `generate_design` | `{ design }`                                                          | 把结构化设计发给插件，等待一键生成。 |
+| `list_components` | `{ pageName, query? }`                                                 | 扫描指定页面的组件并缓存节点树。     |
 
 另外还有 MCP 资源 `figma://selection/current`。
 

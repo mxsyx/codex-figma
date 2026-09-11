@@ -264,3 +264,137 @@ export type CapturedSelection = z.infer<typeof capturedSelectionSchema>;
 export type SelectionEntry = z.infer<typeof selectionEntrySchema>;
 export type AssetPayload = z.infer<typeof assetPayloadSchema>;
 export type BoundVariable = z.infer<typeof boundVariableSchema>;
+
+// --- Codex-generated design -------------------------------------------------
+
+export const designColorSchema = z.object({
+  r: z.number().min(0).max(1),
+  g: z.number().min(0).max(1),
+  b: z.number().min(0).max(1),
+  a: z.number().min(0).max(1).optional(),
+});
+
+export const designBoxSchema = z.object({
+  x: z.number().finite(),
+  y: z.number().finite(),
+  width: z.number().positive().finite(),
+  height: z.number().positive().finite(),
+});
+
+const baseDesignNodeSchema = z.object({
+  name: z.string().min(1).max(120),
+  box: designBoxSchema,
+  rotation: z.number().finite().optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  fill: designColorSchema.optional(),
+  stroke: designColorSchema.optional(),
+  strokeWeight: z.number().positive().max(100).optional(),
+  cornerRadius: z.number().min(0).max(500).optional(),
+});
+
+export const designNodeSchema: z.ZodType<DesignNode> = z.lazy(() =>
+  z.discriminatedUnion("kind", [
+    z.object({
+      ...baseDesignNodeSchema.shape,
+      kind: z.literal("frame"),
+      children: z.array(designNodeSchema).default([]),
+    }),
+    z.object({
+      ...baseDesignNodeSchema.shape,
+      kind: z.literal("rectangle"),
+    }),
+    z.object({
+      ...baseDesignNodeSchema.shape,
+      kind: z.literal("ellipse"),
+    }),
+    z.object({
+      ...baseDesignNodeSchema.shape,
+      kind: z.literal("component"),
+      componentId: z.string().min(1),
+      componentKey: z.string().min(1),
+      properties: z.record(z.string(), z.union([z.string(), z.boolean()])).optional(),
+    }),
+    z.object({
+      ...baseDesignNodeSchema.shape,
+      kind: z.literal("text"),
+      characters: z.string(),
+      fontSize: z.number().positive().max(400).optional(),
+      fontWeight: z.number().min(100).max(900).optional(),
+      color: designColorSchema.optional(),
+      textAlignHorizontal: z.enum(["LEFT", "CENTER", "RIGHT", "JUSTIFIED"]).optional(),
+    }),
+  ]),
+);
+
+export type DesignNode = {
+  kind: "frame" | "rectangle" | "ellipse" | "component" | "text";
+  name: string;
+  box: z.infer<typeof designBoxSchema>;
+  rotation?: number;
+  opacity?: number;
+  fill?: z.infer<typeof designColorSchema>;
+  stroke?: z.infer<typeof designColorSchema>;
+  strokeWeight?: number;
+  cornerRadius?: number;
+  componentId?: string;
+  componentKey?: string;
+  properties?: Record<string, string | boolean>;
+  children?: DesignNode[];
+  characters?: string;
+  fontSize?: number;
+  fontWeight?: number;
+  color?: z.infer<typeof designColorSchema>;
+  textAlignHorizontal?: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
+};
+
+export const designGroupSchema = z.object({
+  name: z.string().min(1).max(120),
+  description: z.string().max(1000).optional(),
+  children: z.array(designNodeSchema).min(1),
+});
+
+export const generatedDesignSchema = z
+  .object({
+    name: z.string().min(1).max(160),
+    description: z.string().max(2000).optional(),
+    width: z.number().positive().max(20000),
+    height: z.number().positive().max(20000),
+    background: designColorSchema.optional(),
+    targetPage: z.string().min(1).max(160).optional(),
+    groups: z.array(designGroupSchema).min(1),
+  })
+  .strict();
+
+export type GeneratedDesign = z.infer<typeof generatedDesignSchema>;
+
+// --- Component library discovery --------------------------------------------
+
+export const componentSummarySchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    type: z.enum(["COMPONENT", "COMPONENT_SET"]),
+    componentKey: z.string().nullable(),
+    description: z.string().nullable(),
+    parentId: z.string().nullable(),
+    x: z.number(),
+    y: z.number(),
+    width: z.number(),
+    height: z.number(),
+  })
+  .strict();
+
+export const componentsResultSchema = z
+  .object({
+    requestId: z.string(),
+    found: z.boolean(),
+    pageId: z.string().optional(),
+    pageName: z.string().optional(),
+    components: z.array(componentSummarySchema),
+    nodes: z.record(z.string(), serializedNodeSchema),
+    error: z.string().max(2000).optional(),
+  })
+  .strict();
+
+export type ComponentSummary = z.infer<typeof componentSummarySchema>;
+export type ComponentsResult = z.infer<typeof componentsResultSchema>;

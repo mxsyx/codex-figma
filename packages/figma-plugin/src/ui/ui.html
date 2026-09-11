@@ -136,6 +136,23 @@
       color: var(--text-secondary);
     }
     .status-line strong { color: var(--text); font-weight: 500; }
+    .design-card {
+      padding: 8px;
+      border: 1px solid var(--border-strong);
+      border-radius: 4px;
+      background: var(--bg-secondary);
+    }
+    .design-title {
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+    .design-meta {
+      font-size: 10px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
     .error-box {
       padding: 8px;
       border-radius: 4px;
@@ -204,6 +221,14 @@
       <span id="push-stats"></span>
     </div>
 
+    <div id="components-status" class="status-line" style="display: none;"></div>
+
+    <div id="design-request" class="design-card" style="display: none;">
+      <div class="design-title">Codex design ready</div>
+      <div id="design-meta" class="design-meta"></div>
+      <button id="generate-design-btn" style="width: 100%;">Generate design</button>
+    </div>
+
     <div id="error" class="error-box" style="display: none;"></div>
 
     <hr />
@@ -213,6 +238,8 @@
       <code>cd bridge && npm start</code>
       <br />
       Then in Codex CLI, ask it to "implement my current Figma selection".
+      <br />
+      Design requests from Codex appear here for one-click generation.
     </div>
   </div>
 

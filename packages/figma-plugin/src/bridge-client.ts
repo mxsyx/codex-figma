@@ -7,7 +7,7 @@
  * Note: uses Promise.race for timeouts instead of AbortController, because
  * the Figma plugin sandbox does not expose AbortController as a global.
  */
-import type { AssetPayload, CapturedSelection, SerializedNode } from './types.js';
+import type { AssetPayload, CapturedSelection, ComponentsResult, SerializedNode } from './types.js';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 const MAX_RETRIES = 2;
@@ -83,6 +83,49 @@ export async function postNode(
         body: JSON.stringify({ requestId, nodeId, ...result }),
       }),
       DEFAULT_TIMEOUT_MS,
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** POST a design generation result to the bridge (/design/result endpoint). */
+export async function postDesignResult(
+  bridgeUrl: string,
+  requestId: string,
+  result: { ok: boolean; rootId?: string; error?: string },
+): Promise<boolean> {
+  const url = joinUrl(bridgeUrl, '/design/result');
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, ...result }),
+      }),
+      DEFAULT_TIMEOUT_MS,
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** POST components discovered on a named Figma page to the bridge. */
+export async function postComponents(
+  bridgeUrl: string,
+  result: ComponentsResult,
+): Promise<boolean> {
+  const url = joinUrl(bridgeUrl, '/components');
+  try {
+    const res = await withTimeout(
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(result),
+      }),
+      60_000,
     );
     return res.ok;
   } catch {

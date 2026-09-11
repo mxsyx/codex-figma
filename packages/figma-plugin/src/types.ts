@@ -165,3 +165,77 @@ export interface CapturedSelection {
 }
 
 export const PLUGIN_VERSION = '0.1.0';
+
+export interface DesignColor {
+  r: number;
+  g: number;
+  b: number;
+  a?: number;
+}
+
+export interface DesignBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface DesignNode {
+  kind: 'frame' | 'rectangle' | 'ellipse' | 'component' | 'text';
+  name: string;
+  box: DesignBox;
+  rotation?: number;
+  opacity?: number;
+  fill?: DesignColor;
+  stroke?: DesignColor;
+  strokeWeight?: number;
+  cornerRadius?: number;
+  componentId?: string;
+  componentKey?: string;
+  properties?: Record<string, string | boolean>;
+  children?: DesignNode[];
+  characters?: string;
+  fontSize?: number;
+  fontWeight?: number;
+  color?: DesignColor;
+  textAlignHorizontal?: 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED';
+}
+
+export interface DesignGroup {
+  name: string;
+  description?: string;
+  children: DesignNode[];
+}
+
+export interface GeneratedDesign {
+  name: string;
+  description?: string;
+  width: number;
+  height: number;
+  background?: DesignColor;
+  targetPage?: string;
+  groups: DesignGroup[];
+}
+
+export interface ComponentSummary {
+  id: string;
+  name: string;
+  type: 'COMPONENT' | 'COMPONENT_SET';
+  componentKey: string | null;
+  description: string | null;
+  parentId: string | null;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface ComponentsResult {
+  requestId: string;
+  found: boolean;
+  pageId?: string;
+  pageName?: string;
+  components: ComponentSummary[];
+  nodes: Record<string, SerializedNode>;
+  error?: string;
+}

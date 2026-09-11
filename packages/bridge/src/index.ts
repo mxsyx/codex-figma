@@ -14,6 +14,8 @@ import { ContextStore } from './store/context-store.js';
 import { createLogger, type LogLevel } from './util/logger.js';
 import { SseBroadcaster } from './util/sse.js';
 import { PendingFetchRegistry } from './store/pending-fetch.js';
+import { PendingDesignRegistry } from './store/pending-design.js';
+import { PendingComponentsRegistry } from './store/pending-components.js';
 import { McpRouteHandler } from './routes/mcp.js';
 import { BRIDGE_VERSION } from './routes/health.js';
 
@@ -42,8 +44,18 @@ async function main(): Promise<void> {
   const store = new ContextStore(paths, log);
   const sse = new SseBroadcaster();
   const pendingFetch = new PendingFetchRegistry(log);
-  const mcp = new McpRouteHandler(store, sse, pendingFetch, log);
-  const server = createServer({ store, sse, pendingFetch, log, mcp });
+  const pendingDesign = new PendingDesignRegistry(log);
+  const pendingComponents = new PendingComponentsRegistry(log);
+  const mcp = new McpRouteHandler(store, sse, pendingFetch, pendingDesign, pendingComponents, log);
+  const server = createServer({
+    store,
+    sse,
+    pendingFetch,
+    pendingDesign,
+    pendingComponents,
+    log,
+    mcp,
+  });
 
   server.on('error', (err) => {
     log.error('http server error', { error: String(err) });
@@ -57,6 +69,8 @@ async function main(): Promise<void> {
         health: `http://${host}:${port}/health`,
         selection: `http://${host}:${port}/selection`,
         node: `http://${host}:${port}/node`,
+        designResult: `http://${host}:${port}/design/result`,
+        components: `http://${host}:${port}/components`,
         events: `http://${host}:${port}/events`,
         mcp: `http://${host}:${port}/mcp`,
       },

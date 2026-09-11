@@ -10,7 +10,14 @@ export type UIToCodeMessage =
   | { kind: 'set-config'; bridgeUrl: string; autoPush: boolean }
   | { kind: 'get-config' }
   | { kind: 'probe-bridge' }
-  | { kind: 'fetch-node'; requestId: string; nodeId: string };
+  | { kind: 'fetch-node'; requestId: string; nodeId: string }
+  | { kind: 'generate-design'; requestId: string; design: import('./types.js').GeneratedDesign }
+  | {
+      kind: 'list-components';
+      requestId: string;
+      pageName: string;
+      query?: string;
+    };
 
 export type CodeToUIMessage =
   | { kind: 'config'; bridgeUrl: string; autoPush: boolean }
@@ -30,4 +37,6 @@ export type CodeToUIMessage =
       bridgeUrl?: string;
     }
   | { kind: 'probe-result'; ok: boolean }
-  | { kind: 'fetch-node-result'; requestId: string; ok: boolean; error?: string };
+  | { kind: 'fetch-node-result'; requestId: string; ok: boolean; error?: string }
+  | { kind: 'generate-design-result'; requestId: string; ok: boolean; rootId?: string; error?: string }
+  | { kind: 'components-result'; requestId: string; ok: boolean; componentCount?: number; error?: string };

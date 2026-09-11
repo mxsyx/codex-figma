@@ -1,6 +1,6 @@
 ---
 name: figma-implement-design
-description: "**MANDATORY prerequisite** — you MUST invoke this skill BEFORE calling any local Figma MCP tool (`get_selection`, `get_node`, `get_screenshot`, `get_asset`, `list_nodes`, `get_variables`). You MUST trigger this skill whenever the user wants to implement, build, port, or code up their current Figma selection as code. Example prompts (not exhaustive): 'implement my Figma selection', 'build this screen from Figma', 'turn my Figma into code', 'design to code'. This skill provides critical instructions on how to correctly drive the local Codex Figma Bridge MCP server and must NOT be skipped."
+description: "**MANDATORY prerequisite** — you MUST invoke this skill BEFORE calling any local Figma read tool (`get_selection`, `get_node`, `get_screenshot`, `get_asset`, `list_nodes`, `list_components`, `get_variables`). You MUST trigger this skill whenever the user wants to implement, build, port, or code up their current Figma selection as code. Example prompts (not exhaustive): 'implement my Figma selection', 'build this screen from Figma', 'turn my Figma into code', 'design to code'. This skill provides critical instructions on how to correctly drive the local Codex Figma Bridge MCP server and must NOT be skipped."
 disable-model-invocation: false
 ---
 

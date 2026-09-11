@@ -22,6 +22,10 @@ const lastPushBlock = $('last-push');
 const pushTime = $('push-time');
 const pushStats = $('push-stats');
 const errorBox = $('error');
+const componentsStatus = $('components-status');
+const designRequest = $('design-request');
+const designMeta = $('design-meta');
+const generateDesignBtn = $('generate-design-btn') as HTMLButtonElement;
 
 // --- Outbound message helper ---------------------------------------------
 
@@ -32,6 +36,7 @@ function sendToCode(msg: UIToCodeMessage): void {
 // --- SSE: listen for bridge → plugin commands (e.g. on-demand node fetch) ---
 
 let eventSource: EventSource | null = null;
+let pendingDesign: { requestId: string; design: import('../types.js').GeneratedDesign } | null = null;
 
 function connectEvents(bridgeUrl: string): void {
   eventSource?.close();
@@ -42,6 +47,37 @@ function connectEvents(bridgeUrl: string): void {
       try {
         const data = JSON.parse((e as MessageEvent).data) as { requestId: string; nodeId: string };
         sendToCode({ kind: 'fetch-node', requestId: data.requestId, nodeId: data.nodeId });
+      } catch {
+        // Malformed event payload — ignore.
+      }
+    });
+    eventSource.addEventListener('generate-design-request', (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data) as {
+          requestId: string;
+          design: import('../types.js').GeneratedDesign;
+        };
+        pendingDesign = { requestId: data.requestId, design: data.design };
+        designMeta.textContent =
+          `${data.design.name} · ${data.design.width}×${data.design.height} · ` +
+          `${data.design.groups.length} business group${data.design.groups.length === 1 ? '' : 's'}`;
+        designRequest.style.display = 'block';
+        generateDesignBtn.disabled = false;
+        generateDesignBtn.textContent = 'Generate design';
+      } catch {
+        // Malformed event payload — ignore.
+      }
+    });
+    eventSource.addEventListener('list-components-request', (e) => {
+      try {
+        const data = JSON.parse((e as MessageEvent).data) as {
+          requestId: string;
+          pageName: string;
+          query?: string;
+        };
+        componentsStatus.style.display = 'block';
+        componentsStatus.textContent = `Scanning components on ${data.pageName}…`;
+        sendToCode({ ...data, kind: 'list-components' });
       } catch {
         // Malformed event payload — ignore.
       }
@@ -65,6 +101,16 @@ autoPushToggle.addEventListener('click', () => {
 
 pushBtn.addEventListener('click', () => sendToCode({ kind: 'push-now' }));
 probeBtn.addEventListener('click', () => sendToCode({ kind: 'probe-bridge' }));
+generateDesignBtn.addEventListener('click', () => {
+  if (!pendingDesign) return;
+  generateDesignBtn.disabled = true;
+  generateDesignBtn.innerHTML = '<span class="spinner"></span> Generating…';
+  sendToCode({
+    kind: 'generate-design',
+    requestId: pendingDesign.requestId,
+    design: pendingDesign.design,
+  });
+});
 
 // --- Inbound message handler ---------------------------------------------
 
@@ -85,6 +131,22 @@ window.onmessage = (event: MessageEvent) => {
       break;
     case 'push-result':
       renderPushResult(msg);
+      break;
+    case 'generate-design-result':
+      if (msg.ok) {
+        generateDesignBtn.textContent = 'Design generated';
+        errorBox.style.display = 'none';
+      } else {
+        generateDesignBtn.disabled = false;
+        generateDesignBtn.textContent = 'Retry generate';
+        errorBox.style.display = 'block';
+        errorBox.textContent = msg.error ?? 'unknown design generation error';
+      }
+      break;
+    case 'components-result':
+      componentsStatus.textContent = msg.ok
+        ? `${msg.componentCount ?? 0} components cached from Figma`
+        : (msg.error ?? 'component scan failed');
       break;
     case 'probe-result':
       renderStatusPill(msg.ok);

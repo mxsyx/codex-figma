@@ -1,7 +1,7 @@
 {
   "name": "codex-figma-bridge",
   "version": "0.1.0",
-  "description": "Local Figma-to-Codex bridge: implement the user's live Figma selection as code via a localhost MCP server.",
+  "description": "Local Codex-Figma bridge: implement the current Figma selection as code and generate structured Figma designs from natural-language intent.",
   "author": {
     "name": "Codex Figma Bridge",
     "url": "https://github.com/mxsyx/codex-figma"
@@ -13,24 +13,29 @@
     "figma",
     "design",
     "design-to-code",
+    "intent-to-design",
     "ui-implementation",
     "mcp",
     "local-bridge"
   ],
-  "skills": ["./skills/figma-implement-design"],
+  "skills": [
+    "./skills/figma-implement-design",
+    "./skills/figma-generate-design-from-intent"
+  ],
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Codex Figma Bridge",
-    "shortDescription": "Implement your current Figma selection as code via a local MCP bridge",
-    "longDescription": "Local Figma-to-Codex bridge. A Figma Desktop plugin captures the user's live selection and ships it to a localhost bridge, which exposes it to Codex via MCP tools (get_selection, get_node, get_screenshot, get_asset). Use this when the user wants to implement, build, port, or code up a Figma design as code — no Figma URL or cloud connector required.",
+    "shortDescription": "Implement Figma selections as code or generate Figma designs from intent",
+    "longDescription": "Local Codex-Figma bridge. A Figma Desktop plugin captures the user's live selection and ships it to a localhost bridge, which exposes it to Codex via MCP tools (get_selection, get_node, get_screenshot, get_asset, list_components). Codex can also translate natural-language product intent into a structured design that reuses components from a named Figma page, targets a named destination page, and sends it back to the plugin for one-click generation. No Figma URL or cloud connector required.",
     "developerName": "Codex Figma Bridge",
     "category": "Creativity",
-    "capabilities": ["Interactive", "Read"],
+    "capabilities": ["Interactive", "Read", "Write"],
     "websiteURL": "https://github.com/mxsyx/codex-figma",
     "defaultPrompt": [
       "Implement my current Figma selection as a React component",
       "Build this Figma screen in my project",
-      "Turn my Figma selection into code"
+      "Turn my Figma selection into code",
+      "Generate a Figma design for a customer revenue dashboard"
     ],
     "brandColor": "#0D99FF",
     "composerIcon": "./assets/icon.svg",

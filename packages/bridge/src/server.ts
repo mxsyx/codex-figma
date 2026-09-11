@@ -3,72 +3,106 @@
  * holds no state of its own — all state lives in ContextStore, the SSE
  * broadcaster, and the McpRouteHandler session map.
  */
-import { createServer as createHttpServer, type IncomingMessage, ServerResponse } from 'node:http';
-import type { ContextStore } from './store/context-store.js';
-import type { SseBroadcaster } from './util/sse.js';
-import type { PendingFetchRegistry } from './store/pending-fetch.js';
-import type { Logger } from './util/logger.js';
-import { handleHealth, BRIDGE_VERSION } from './routes/health.js';
-import { handlePostSelection } from './routes/selection.js';
-import { handlePostNode } from './routes/node.js';
-import { handleEvents } from './routes/events.js';
-import { McpRouteHandler } from './routes/mcp.js';
-import { handlePreflight, applyCorsHeaders } from './util/cors.js';
-import { sendJson, sendError } from './util/http.js';
+import {
+  createServer as createHttpServer,
+  type IncomingMessage,
+  ServerResponse,
+} from "node:http";
+import type { ContextStore } from "./store/context-store.js";
+import type { SseBroadcaster } from "./util/sse.js";
+import type { PendingFetchRegistry } from "./store/pending-fetch.js";
+import type { PendingDesignRegistry } from "./store/pending-design.js";
+import type { PendingComponentsRegistry } from "./store/pending-components.js";
+import type { Logger } from "./util/logger.js";
+import { handleHealth, BRIDGE_VERSION } from "./routes/health.js";
+import { handlePostSelection } from "./routes/selection.js";
+import { handlePostNode } from "./routes/node.js";
+import { handlePostDesignResult } from "./routes/design-result.js";
+import { handlePostComponents } from "./routes/components.js";
+import { handleEvents } from "./routes/events.js";
+import { McpRouteHandler } from "./routes/mcp.js";
+import { handlePreflight, applyCorsHeaders } from "./util/cors.js";
+import { sendJson, sendError } from "./util/http.js";
 
 export interface ServerDeps {
   store: ContextStore;
   sse: SseBroadcaster;
   pendingFetch: PendingFetchRegistry;
+  pendingDesign: PendingDesignRegistry;
+  pendingComponents: PendingComponentsRegistry;
   log: Logger;
   mcp: McpRouteHandler;
 }
 
-export function createServer(deps: ServerDeps): ReturnType<typeof createHttpServer> {
-  const { store, sse, pendingFetch, log, mcp } = deps;
+export function createServer(
+  deps: ServerDeps,
+): ReturnType<typeof createHttpServer> {
+  const {
+    store,
+    sse,
+    pendingFetch,
+    pendingDesign,
+    pendingComponents,
+    log,
+    mcp,
+  } = deps;
 
   const server = createHttpServer(async (req, res) => {
     // CORS preflight — answer before routing.
-    if (req.method === 'OPTIONS') {
+    if (req.method === "OPTIONS") {
       handlePreflight(req, res);
       return;
     }
 
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    const url = new URL(req.url ?? "/", "http://localhost");
     const path = url.pathname;
 
     try {
       switch (true) {
-        case path === '/health' && req.method === 'GET':
+        case path === "/health" && req.method === "GET":
           handleHealth(req, res, store);
           return;
 
-        case path === '/selection' && req.method === 'POST':
+        case path === "/selection" && req.method === "POST":
           await handlePostSelection(req, res, { store, sse, log });
           return;
 
-        case path === '/node' && req.method === 'POST':
+        case path === "/node" && req.method === "POST":
           await handlePostNode(req, res, { store, pendingFetch, log });
           return;
 
-        case path === '/events' && req.method === 'GET':
+        case path === "/design/result" && req.method === "POST":
+          await handlePostDesignResult(req, res, { pendingDesign, log });
+          return;
+
+        case path === "/components" && req.method === "POST":
+          await handlePostComponents(req, res, {
+            store,
+            pendingComponents,
+            log,
+          });
+          return;
+
+        case path === "/events" && req.method === "GET":
           handleEvents(req, res, { store, sse });
           return;
 
-        case path === '/mcp':
+        case path === "/mcp":
           await mcp.handle(req, res);
           return;
 
-        case path === '/' && req.method === 'GET':
+        case path === "/" && req.method === "GET":
           sendJson(res, 200, {
-            name: 'codex-figma-bridge',
+            name: "codex-figma-bridge",
             version: BRIDGE_VERSION,
             endpoints: {
-              health: 'GET /health',
-              selection: 'POST /selection',
-              node: 'POST /node',
-              events: 'GET /events (SSE)',
-              mcp: 'POST /mcp · GET /mcp · DELETE /mcp',
+              health: "GET /health",
+              selection: "POST /selection",
+              node: "POST /node",
+              designResult: "POST /design/result",
+              components: "POST /components",
+              events: "GET /events (SSE)",
+              mcp: "POST /mcp · GET /mcp · DELETE /mcp",
             },
           });
           return;
@@ -78,8 +112,12 @@ export function createServer(deps: ServerDeps): ReturnType<typeof createHttpServ
           sendError(res, 404, `not found: ${req.method} ${path}`);
       }
     } catch (err) {
-      log.error('unhandled route error', { path, method: req.method, error: String(err) });
-      if (!res.headersSent) sendError(res, 500, 'internal error', String(err));
+      log.error("unhandled route error", {
+        path,
+        method: req.method,
+        error: String(err),
+      });
+      if (!res.headersSent) sendError(res, 500, "internal error", String(err));
     }
   });
 

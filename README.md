@@ -1,6 +1,6 @@
 # Codex Figma Bridge
 
-Implement your **live Figma selection** as code in any local repository — no Figma URL, no cloud connector, no Dev Seat required.
+Implement your **live Figma selection** as code, or generate a structured Figma design from **natural-language product intent** — no Figma URL, no cloud connector, no Dev Seat required.
 
 A Figma Desktop plugin captures the user's current selection (node tree, styles, text, variables, components, screenshots, SVG icons) and ships it over HTTP to a **local bridge** running on `localhost:3845`. The bridge caches the context and exposes it to Codex CLI through an **MCP server**. Codex reads node info + screenshots and modifies the local repository, then runs lint / typecheck.
 
@@ -38,7 +38,8 @@ A Figma Desktop plugin captures the user's current selection (node tree, styles,
 │   ├─ get_screenshot           │
 │   ├─ get_asset                │
 │   ├─ list_nodes               │
-│   └─ get_variables            │
+│   ├─ get_variables            │
+│   └─ generate_design          │
 └──────────────┬────────────────┘
                │ MCP (POST /mcp)
                ▼
@@ -180,6 +181,24 @@ Codex will:
 5. Adapt the design to your project's stack (reuse existing components + tokens).
 6. Run lint / typecheck / preview and report parity.
 
+### Generate a design from intent
+
+With the bridge running and the **Codex Figma Bridge** plugin open in Figma Desktop:
+
+```bash
+codex "Generate a Figma design for an admin dashboard that shows revenue KPIs, churn risk, and recent payments"
+```
+
+Codex loads the `figma-generate-design-from-intent` skill, translates the business intent into a structured design specification, and calls `generate_design`. The plugin displays the pending design. After you click **Generate design**, it creates a business-named root frame and business-named Figma Groups such as `Revenue KPIs`, `Churn Risk`, and `Recent Payments`.
+
+When the user names a component library and destination page:
+
+```bash
+codex "Use the Button, Badge, and Card components on the Polaris page to design a customer revenue dashboard, and write it to the ShopifyApp page"
+```
+
+Codex first calls `list_components` to scan the `Polaris` page, then `get_node` to inspect each matching component and its property definitions. The generated design references components by `componentId` and sets `targetPage: "ShopifyApp"`. The plugin creates the destination page if it does not exist.
+
 ## MCP tools
 
 | Tool             | Input                                                                 | Returns                                         |
@@ -190,6 +209,8 @@ Codex will:
 | `get_asset`      | `{ nodeId, format? }`                                                 | SVG (preferred for icons) or PNG image content. |
 | `list_nodes`     | `{ type?, name? }`                                                    | Search hits across cached trees.                |
 | `get_variables`  | `{ collectionName? }`                                                 | Design-token bindings.                          |
+| `generate_design` | `{ design }`                                                          | Sends a structured design for one-click generation. |
+| `list_components` | `{ pageName, query? }`                                                 | Scans components on a named page and caches their node trees. |
 
 Plus the MCP resource `figma://selection/current`.
 
