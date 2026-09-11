@@ -1,6 +1,6 @@
 {
   "name": "@codex-figma/bridge",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Local HTTP bridge + MCP server that exposes the user's live Figma selection to Codex CLI.",
   "type": "module",
   "license": "MIT",

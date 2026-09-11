@@ -1,6 +1,6 @@
 {
   "name": "@codex-figma/figma-plugin",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Figma Desktop plugin that captures the live selection and generates structured designs requested by Codex.",
   "license": "MIT",
   "private": true,
