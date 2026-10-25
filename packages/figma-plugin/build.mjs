@@ -10,16 +10,14 @@
 import { build, context } from 'esbuild';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dist = join(here, 'dist');
-const watch = process.argv.includes('--watch');
-
-await mkdir(dist, { recursive: true });
 
 // --- Sandbox bundle (code.ts → dist/code.js) ------------------------------
 const codeConfig = {
+  absWorkingDir: here,
   entryPoints: [join(here, 'src', 'code.ts')],
   bundle: true,
   outfile: join(dist, 'code.js'),
@@ -27,10 +25,12 @@ const codeConfig = {
   format: 'iife',
   logLevel: 'info',
   legalComments: 'none',
+  write: false,
 };
 
 // --- Iframe bundle (ui.ts → inlined into dist/ui.html) -------------------
 const uiConfig = {
+  absWorkingDir: here,
   entryPoints: [join(here, 'src', 'ui', 'ui.ts')],
   bundle: true,
   target: 'es2017',
@@ -48,36 +48,49 @@ async function buildUi() {
     '<!-- {{UI_JS}} -->',
     `<script>(function(){${uiJs}})();</script>`,
   );
-  await writeFile(join(dist, 'ui.html'), finalHtml);
+  return finalHtml;
 }
 
-if (watch) {
-  const codeCtx = await context(codeConfig);
-  await codeCtx.watch();
-  // For the UI, esbuild doesn't have a built-in "inline into HTML" step, so
-  // we rebuild it on every change by polling the watch context's events.
-  const uiCtx = await context({
-    ...uiConfig,
-    plugins: [
-      {
-        name: 'inline-ui-html',
-        setup(b) {
-          b.onEnd(async () => {
-            try {
-              await buildUi();
-            } catch (err) {
-              // eslint-disable-next-line no-console
-              console.error('[ui inline]', err);
-            }
-          });
-        },
-      },
-    ],
-  });
-  await uiCtx.watch();
-  // Build once upfront so a fresh `--watch` start has the HTML ready.
-  await buildUi();
-} else {
-  await build(codeConfig);
-  await buildUi();
+/** Fresh in-memory artifacts shared by local development and Codex ZIP packaging. */
+export async function buildFigmaPlugin() {
+  const [code, html] = await Promise.all([build(codeConfig), buildUi()]);
+  return new Map([
+    ['dist/code.js', Buffer.from(code.outputFiles[0].contents)],
+    ['dist/ui.html', Buffer.from(html)],
+  ]);
 }
+
+async function main() {
+  await mkdir(dist, { recursive: true });
+  if (process.argv.includes('--watch')) {
+    const codeCtx = await context({ ...codeConfig, write: true });
+    await codeCtx.watch();
+    // For the UI, esbuild doesn't have a built-in "inline into HTML" step, so
+    // we rebuild it on every change by polling the watch context's events.
+    const uiCtx = await context({
+      ...uiConfig,
+      plugins: [
+        {
+          name: 'inline-ui-html',
+          setup(b) {
+            b.onEnd(async () => {
+              try {
+                await writeFile(join(dist, 'ui.html'), await buildUi());
+              } catch (err) {
+                // eslint-disable-next-line no-console
+                console.error('[ui inline]', err);
+              }
+            });
+          },
+        },
+      ],
+    });
+    await uiCtx.watch();
+    // Build once upfront so a fresh `--watch` start has the HTML ready.
+    await writeFile(join(dist, 'ui.html'), await buildUi());
+  } else {
+    for (const [name, bytes] of await buildFigmaPlugin()) await writeFile(join(here, name), bytes);
+  }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

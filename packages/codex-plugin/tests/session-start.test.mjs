@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, readFile, writeFile, rm, copyFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, copyFile, cp, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -9,7 +9,8 @@ import { setTimeout as delay } from 'node:timers/promises';
 import test from 'node:test';
 
 const hook = fileURLToPath(new URL('../hooks/session-start.mjs', import.meta.url));
-const bridge = fileURLToPath(new URL('../../bridge/bin/codex-figma-bridge.mjs', import.meta.url));
+const pluginRoot = fileURLToPath(new URL('../', import.meta.url));
+const bridge = fileURLToPath(new URL('../runtime/bridge.mjs', import.meta.url));
 
 async function listen(server) {
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
@@ -115,16 +116,57 @@ test('does not launch or terminate anything when the port belongs to another ser
   assert.equal((await fetch(`http://127.0.0.1:${f.env.CODEX_FIGMA_BRIDGE_PORT}/health`)).status, 200);
 });
 
-test('installed plugin resolves a globally installed bridge without sibling source', async (t) => {
+test('isolated plugin starts its bundled bridge without npm, node_modules, sibling source or global bridge', async (t) => {
   const f = await fixture(t);
-  const installedHook = join(f.root, 'installed plugin', 'hooks', 'session-start.mjs');
-  await mkdir(join(f.root, 'installed plugin', 'hooks'), { recursive: true });
-  await copyFile(hook, installedHook);
+  const installed = join(f.root, 'installed plugin');
+  const manifest = JSON.parse(await readFile(join(pluginRoot, 'package.json'), 'utf8'));
+  for (const path of [...manifest.files, 'package.json']) {
+    await cp(join(pluginRoot, path), join(installed, path), { recursive: true });
+  }
+  const installedHook = join(installed, 'hooks/session-start.mjs');
+  const installedBridge = join(installed, 'runtime/bridge.mjs');
+  assert.ok(!(await readdir(installed)).includes('node_modules'));
+  const tracer = join(f.root, 'trace.mjs');
+  await writeFile(tracer, `import { appendFileSync } from 'node:fs';
+if (process.argv[1] === ${JSON.stringify(installedBridge)}) appendFileSync(${JSON.stringify(f.pidsFile)}, process.pid + '\\n');
+`);
+  // Poison the old global fallback; it must never be invoked.
   const bin = join(f.root, 'bin');
   await mkdir(bin);
-  const entry = await readFile(f.env.CODEX_FIGMA_BRIDGE_ENTRY, 'utf8');
-  await writeFile(join(bin, 'codex-figma-bridge'), `#!${process.execPath}\n${entry}`, { mode: 0o755 });
-  success(await runHook(f, installedHook, { CODEX_FIGMA_BRIDGE_ENTRY: '', PATH: bin }));
+  await writeFile(join(bin, 'codex-figma-bridge'), `#!${process.execPath}\nprocess.exit(99);`, { mode: 0o755 });
+  const extra = { CODEX_FIGMA_BRIDGE_ENTRY: '', PATH: bin, NODE_PATH: '', NODE_OPTIONS: `--import ${pathToFileURL(tracer).href}` };
+  success(await runHook(f, installedHook, extra));
+  const before = await readFile(f.pidsFile, 'utf8');
+  assert.equal(before.trim().split('\n').length, 1);
+  success(await runHook(f, installedHook, extra));
+  assert.equal(await readFile(f.pidsFile, 'utf8'), before);
+  const health = await (await fetch(`http://127.0.0.1:${f.port}/health`)).json();
+  assert.equal(health.mode, 'live-name-query');
+  const pkg = JSON.parse(await readFile(new URL('../../bridge/package.json', import.meta.url), 'utf8'));
+  assert.equal(health.version, pkg.version, 'bundled version must not depend on a checkout manifest');
+
+  // Exercise bundled SDK/validation dependencies through HTTP, beyond a health probe.
+  const rpc = async (body, session) => {
+    const response = await fetch(`http://127.0.0.1:${f.port}/mcp`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream',
+        ...(session ? { 'Mcp-Session-Id': session } : {}) }, body: JSON.stringify(body),
+    });
+    const text = await response.text();
+    const data = text.startsWith('event:') ? JSON.parse(text.match(/^data: (.+)$/m)[1]) : text ? JSON.parse(text) : null;
+    assert.equal(response.ok, true, text);
+    return { data, session: response.headers.get('mcp-session-id') };
+  };
+  const initialized = await rpc({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {
+    protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'isolated-test', version: '1' },
+  } });
+  const session = initialized.session;
+  await rpc({ jsonrpc: '2.0', method: 'notifications/initialized' }, session);
+  const listed = await rpc({ jsonrpc: '2.0', id: 2, method: 'tools/list' }, session);
+  assert.ok(listed.data.result.tools.some((tool) => tool.name === 'resolve_node'));
+  const call = await rpc({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'resolve_node', arguments: { nodeName: '登录页' } } }, session);
+  assert.equal(call.data.result.isError, true);
+  assert.match(call.data.result.content[0].text, /not connected/);
+  await fetch(`http://127.0.0.1:${f.port}/mcp`, { method: 'DELETE', headers: { 'Mcp-Session-Id': session } });
 });
 
 test('refuses an old bridge protocol without spawning or terminating a process', async (t) => {
@@ -142,14 +184,14 @@ test('refuses an old bridge protocol without spawning or terminating a process',
   assert.equal((await fetch(`http://127.0.0.1:${f.env.CODEX_FIGMA_BRIDGE_PORT}/health`)).status, 200);
 });
 
-test('missing executable and invalid overrides fail with actionable errors', async (t) => {
+test('missing bundle and invalid overrides fail without using a global fallback', async (t) => {
   const f = await fixture(t);
   const installedHook = join(f.root, 'session-start.mjs');
   await copyFile(hook, installedHook);
   const missing = await runHook(f, installedHook, { CODEX_FIGMA_BRIDGE_ENTRY: '', PATH: f.root });
   assert.equal(missing.code, 1);
-  assert.match(missing.stderr, /Cannot start the bridge/);
-  assert.match(missing.stderr, /CODEX_FIGMA_BRIDGE_ENTRY/);
+  assert.match(missing.stderr, /missing runtime\/bridge.mjs/);
+  assert.match(missing.stderr, /Reinstall the complete/);
   const invalid = await runHook(f, hook, { CODEX_FIGMA_BRIDGE_ENTRY: 'relative.mjs' });
   assert.equal(invalid.code, 1);
   assert.match(invalid.stderr, /existing absolute path/);

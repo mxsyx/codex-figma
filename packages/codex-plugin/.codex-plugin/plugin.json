@@ -1,6 +1,6 @@
 {
   "name": "codex-figma-bridge",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "description": "Live name-based Figma queries for code implementation, plus one-click design generation.",
   "author": {
     "name": "Codex Figma Bridge",
@@ -19,6 +19,7 @@
     "local-bridge"
   ],
   "skills": [
+    "./skills/figma-install-plugin",
     "./skills/figma-implement-design",
     "./skills/figma-generate-design-from-intent"
   ],
@@ -37,6 +38,7 @@
     ],
     "websiteURL": "https://github.com/mxsyx/codex-figma",
     "defaultPrompt": [
+      "帮我安装 Figma 插件，给我压缩包和安装教程",
       "实现 figma 节点「登录页」",
       "Implement the Figma node named Login using my project components",
       "Generate a Figma design for a customer revenue dashboard"

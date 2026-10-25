@@ -4,10 +4,12 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { SseBroadcaster } from "../util/sse.js";
 import { sendJson } from "../util/http.js";
 
-// Read version from package.json so changeset version bumps are reflected
-// without manually syncing a hardcoded constant.
-const pkg = createRequire(import.meta.url)("../../package.json");
-export const BRIDGE_VERSION: string = pkg.version;
+// The standalone plugin build injects this from the bridge package manifest.
+// Normal source/tsc builds read the same manifest at runtime.
+declare const __BRIDGE_VERSION__: string;
+export const BRIDGE_VERSION: string = typeof __BRIDGE_VERSION__ !== 'undefined'
+  ? __BRIDGE_VERSION__
+  : createRequire(import.meta.url)("../../package.json").version;
 
 export function handleHealth(
   _req: IncomingMessage,

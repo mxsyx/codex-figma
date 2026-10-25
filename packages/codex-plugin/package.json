@@ -5,7 +5,14 @@
   "description": "Codex plugin for implementing named Figma nodes from live queries and generating designs.",
   "license": "MIT",
   "scripts": {
+    "build": "node build.mjs",
+    "check:bundle": "node build.mjs --check",
+    "prepack": "node build.mjs --check",
     "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "fflate": "0.8.2"
   },
   "files": [
     ".codex-plugin",
@@ -14,6 +21,7 @@
     "skills",
     "commands",
     "agents",
-    "assets"
+    "assets",
+    "runtime"
   ]
 }

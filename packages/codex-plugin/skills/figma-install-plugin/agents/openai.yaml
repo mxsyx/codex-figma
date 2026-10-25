@@ -1,0 +1,4 @@
+interface:
+  display_name: "Install Figma Plugin"
+  short_description: "Download the Figma plugin ZIP and installation guide"
+  default_prompt: "Use $figma-install-plugin to give me the Figma plugin ZIP and installation steps."

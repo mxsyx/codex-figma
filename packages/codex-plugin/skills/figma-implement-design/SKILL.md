@@ -18,6 +18,9 @@ connected to that bridge. The search covers all pages, hidden layers, and nodes
 that are not selected, within that file. It cannot search other files in the
 same Figma team/project.
 
+If the user needs the Figma-side plugin installed, use `figma-install-plugin`
+to supply the bundled ZIP and tutorial before attempting live reads.
+
 ## Resolve the name first
 
 1. Extract the full layer name from the user's request. For `实现 figma 节点「登录页」`,

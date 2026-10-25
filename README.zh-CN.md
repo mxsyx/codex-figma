@@ -23,25 +23,33 @@ Codex ← 实时节点/截图 ← Bridge ← 当前请求的响应 ← 全文件
 
 ## 安装
 
-需要 Node.js 20+、pnpm 和 Figma Desktop。从仓库根目录执行：
+Codex 插件内置 Bridge 及全部运行依赖，**不需要单独 npm 安装 Bridge，也不需要配置仓库路径**。运行环境需要 Node.js 20+，Figma 侧仍需打开配套插件。
+
+已添加 marketplace 时，只需安装 `codex-figma-bridge@codex-figma`。使用本地仓库作为 marketplace 时，从仓库根目录执行：
 
 ```bash
-pnpm install
-pnpm build
-npm install -g ./packages/bridge
 codex plugin marketplace add .
 codex plugin add codex-figma-bridge@codex-figma
 ```
 
-在 Figma 的开发插件菜单选择 **Import plugin from manifest…**，导入 `packages/figma-plugin/manifest.json`。在目标文件运行 **Codex Figma Bridge**，URL 使用 `http://localhost:11111`，等待面板显示 `bridge up`。
+Codex 插件 0.5.0 起同时内置 Figma 侧插件压缩包。安装 Codex 插件后直接对 Agent 说：
 
-Codex 插件自带 MCP 配置和 SessionStart hook。按 Codex 的 hook 信任流程，在 `/hooks` 检查并信任后，新 session 会自动启动 Bridge；已经有兼容 Bridge 在运行时直接复用。多个 session 共享服务，结束 session 不停止它。hook 不会下载依赖，也不会终止占用端口的其他服务。
+> 帮我安装 Figma 插件，给我压缩包和安装教程
 
-若安装后的 Codex 插件找不到 Bridge，可在启动 Codex 前设置：
+Agent 会提供可另存的 ZIP 和教程链接。也可以直接获取仓库中的 [Figma 插件压缩包](packages/codex-plugin/assets/figma-plugin/codex-figma-plugin.zip) 与 [完整安装教程](packages/codex-plugin/assets/figma-plugin/INSTALL.md)。
 
-```bash
-export CODEX_FIGMA_BRIDGE_ENTRY=/absolute/path/to/codex-figma/packages/bridge/bin/codex-figma-bridge.mjs
-```
+1. 将 ZIP 另存到本地，完整解压到长期保留的目录。
+2. 在 Figma 桌面版的 **Plugins → Development → Import new plugin from manifest…** 中选择解压后的 `codex-figma-plugin/manifest.json`。
+3. 运行 **Codex Figma Bridge**，URL 使用 `http://localhost:11111`，等待 `bridge up`。
+4. 保持插件打开，向 Codex 请求：`获取 figma 节点「创建二维码」的截图`。
+
+不用克隆源码或编译插件；不要只保存 manifest，也不要在导入后删除解压目录。若希望 Agent 帮忙保存到指定目录，可以说“把 Figma 插件压缩包保存到 /我的目录”。Figma 的导入操作由用户在桌面版中完成。
+
+Codex 插件自带预构建的 `runtime/bridge.mjs`、MCP 配置和 SessionStart hook。按 Codex 的 hook 信任流程，在 `/hooks` 检查并信任后，新 session 会自动启动 Bridge；已经有兼容 Bridge 在运行时直接复用。多个 session 共享服务，结束 session 不停止它。hook 不会下载依赖，也不会终止占用端口的其他服务。
+
+默认启动插件内置 Bridge，不会查找全局可执行文件。`CODEX_FIGMA_BRIDGE_ENTRY` 仅作为开发时的显式覆盖；正式使用可移除之前设置的该变量。若提示缺少 `runtime/bridge.mjs`，请重新安装完整插件包。
+
+Figma 侧插件只需导入一次；升级时重新向 Agent 索取压缩包，并按教程更新本地文件。开发者才需要 `pnpm install` 和构建命令。
 
 不使用 Codex 插件时，可参考 [手动 MCP 配置](codex-config.snippet.toml) 和 [AGENTS 模板](AGENTS.md.template)，并手动运行 `pnpm start`。
 
@@ -72,17 +80,21 @@ export CODEX_FIGMA_BRIDGE_ENTRY=/absolute/path/to/codex-figma/packages/bridge/bi
 
 ## 升级与开发
 
-这是读取协议的破坏性更新。同步更新 Bridge、Figma 插件和 Codex 插件；旧版 Bridge 不会被新 hook 复用。停止旧进程后重建：
+Codex 插件 0.4.0 起内置 Bridge。正式使用只需更新 Codex 插件包；升级后如需切换到包内新版运行时，先停止旧 Bridge，再启动新 session。旧缓存协议的 Bridge 不会被新 hook 复用。
+
+开发者修改源码后执行：
 
 ```bash
+pnpm install
 pnpm --filter @codex-figma/bridge run clean
 pnpm build
+pnpm --filter @codex-figma/codex-plugin check:bundle
 pnpm -r run typecheck
 pnpm --filter @codex-figma/bridge test
-node --test packages/codex-plugin/tests/session-start.test.mjs
+node --test packages/codex-plugin/tests/*.test.mjs
 ```
 
-更新全局 Bridge 或 `CODEX_FIGMA_BRIDGE_ENTRY` 指向的构建，刷新/重装已缓存的 Codex 插件，然后重开 Figma 插件与 Codex session。旧缓存文件不再读取或写入；本次升级不会自动删除历史文件。
+发布时必须包含 `packages/codex-plugin/runtime/` 和 `assets/figma-plugin/`：Bridge、Figma ZIP、安装教程及许可证随源码保留，marketplace 安装无需运行构建。ZIP 始终从当前 Figma 源码构建，不读取可能过期的 dist。`check:bundle` 检查产物是否与源码一致，`prepack` 也会执行此检查。重装已缓存的 Codex 插件并重开 session 后使用新版；Figma 侧代码变更后也需重载插件。历史设计缓存不再读取或写入，也不会自动删除。
 
 开发命令：`pnpm dev` 启动 Bridge watch；`pnpm --filter @codex-figma/figma-plugin watch` 构建插件。前台 dev 与后台 Bridge 使用同一端口时只能运行一个实例。
 

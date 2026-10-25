@@ -38,8 +38,11 @@ async function main() {
   if (override && (!isAbsolute(override) || !existsSync(override))) {
     throw new Error('CODEX_FIGMA_BRIDGE_ENTRY must be an existing absolute path to codex-figma-bridge.mjs.');
   }
-  const checkoutEntry = fileURLToPath(new URL('../../bridge/bin/codex-figma-bridge.mjs', import.meta.url));
-  const entry = override ?? (existsSync(checkoutEntry) ? checkoutEntry : undefined);
+  const bundledEntry = fileURLToPath(new URL('../runtime/bridge.mjs', import.meta.url));
+  const entry = override ?? bundledEntry;
+  if (!existsSync(entry)) {
+    throw new Error('The plugin is missing runtime/bridge.mjs. Reinstall the complete Codex Figma Bridge plugin. Maintainers: run pnpm --filter @codex-figma/codex-plugin build before distributing it.');
+  }
   const logBase = platform() === 'darwin'
     ? join(homedir(), 'Library', 'Logs')
     : process.env.XDG_STATE_HOME ?? join(homedir(), '.local', 'state');
@@ -49,8 +52,8 @@ async function main() {
   const logFd = openSync(logPath, 'a', 0o600);
   let child;
   try {
-    child = spawn(entry ? process.execPath : 'codex-figma-bridge', entry ? [entry] : [], {
-      cwd: entry ? dirname(entry) : logRoot,
+    child = spawn(process.execPath, [entry], {
+      cwd: dirname(entry),
       env: { ...process.env, CODEX_FIGMA_BRIDGE_HOST: host, CODEX_FIGMA_BRIDGE_PORT: String(port) },
       detached: true,
       stdio: ['ignore', logFd, logFd],
@@ -67,7 +70,7 @@ async function main() {
     while (Date.now() < deadline) {
       if (await isReady()) return;
       if (spawnError) {
-        throw new Error(`Cannot start the bridge: ${spawnError.message}. Build/install codex-figma-bridge on PATH, or set CODEX_FIGMA_BRIDGE_ENTRY to its absolute .mjs path.`);
+        throw new Error(`Cannot start the bundled bridge: ${spawnError.message}. Reinstall the complete Codex Figma Bridge plugin.`);
       }
       // Concurrent sessions may both observe a closed port. The OS grants one
       // listener; the losing bridge exits on EADDRINUSE. Wait for the winner's

@@ -8,17 +8,14 @@ It also retains the intent-to-Figma generation workflow. The local Bridge replac
 
 ## Install
 
-From the repository root, with Node.js 20+:
+Version 0.5.0 includes the Bridge runtime, its npm dependencies, and a ready-to-import Figma companion ZIP. Users need Node.js 20+ on PATH, but no npm/pnpm install, global Bridge executable, or source checkout. With the marketplace registered, install this plugin. For a local marketplace, run from its root:
 
 ```bash
-pnpm install
-pnpm build
-npm install -g ./packages/bridge
 codex plugin marketplace add .
 codex plugin add codex-figma-bridge@codex-figma
 ```
 
-The bundled `.mcp.json` connects to `http://localhost:11111/mcp`. No separate MCP entry is needed when using this plugin. Import `../figma-plugin/manifest.json` into Figma and keep one plugin open in the target file.
+The bundled `.mcp.json` connects to `http://localhost:11111/mcp`. No separate MCP entry is needed when using this plugin. Ask the Agent “帮我安装 Figma 插件，给我压缩包和安装教程” or “Give me the Figma plugin ZIP and installation steps”. The installation skill supplies the [bundled ZIP](assets/figma-plugin/codex-figma-plugin.zip) and [tutorial](assets/figma-plugin/INSTALL.md) using actual local file links, and can copy them into a directory you specify. No source checkout or compilation is needed. Save/extract the ZIP permanently, import `codex-figma-plugin/manifest.json` in Figma Desktop, and keep one plugin open in the target file. Delivering the ZIP does not itself perform the Figma import.
 
 ## Automatic startup
 
@@ -29,13 +26,14 @@ Review/trust the SessionStart hook in Codex `/hooks`, then start a new session. 
 - Keeps the shared Bridge alive when a session ends.
 - Reports occupied ports/outdated bridges without killing them or downloading dependencies.
 
-Node must be on the Codex process's PATH. The hook finds the Bridge through `CODEX_FIGMA_BRIDGE_ENTRY` (an absolute `.mjs` path), a sibling `../bridge` checkout, or `codex-figma-bridge` on PATH, in that order. Rebuild after source changes.
+The hook uses Node to run `${PLUGIN_ROOT}/runtime/bridge.mjs`. It does not
+search a sibling package or PATH for a Bridge. Installation/startup does not run
+npm, pnpm, npx, or download any runtime dependencies. A missing bundle reports an
+incomplete plugin installation and asks for a reinstall.
 
-For example, export this before starting Codex if not installing the Bridge globally:
-
-```bash
-export CODEX_FIGMA_BRIDGE_ENTRY=/absolute/path/to/codex-figma/packages/bridge/bin/codex-figma-bridge.mjs
-```
+`CODEX_FIGMA_BRIDGE_ENTRY` remains an optional absolute `.mjs` path for developers
+explicitly testing another build. It takes precedence over the bundle; unset it
+for normal use. Node itself and the companion Figma plugin are still required.
 
 Hook diagnostics go to `startup.log` under `PLUGIN_DATA`, falling back to macOS `~/Library/Logs/codex-figma-bridge` or Linux `${XDG_STATE_HOME:-~/.local/state}/codex-figma-bridge`. Bridge operational logs use `CODEX_FIGMA_BRIDGE_LOG_DIR` or that default directory. There is no design cache.
 
@@ -68,13 +66,28 @@ Removed: `get_selection`, `list_nodes`, `figma://selection/current`, ID-only rea
 - `.codex-plugin/plugin.json`: manifest and natural-language default prompts.
 - `.mcp.json`: local HTTP MCP connection.
 - `hooks/`: SessionStart registration and startup script.
-- `skills/`: implementation and intent-to-design workflows.
+- `runtime/`: standalone Bridge and complete bundled dependency license notices.
+- `skills/`: ZIP installation, implementation and intent-to-design workflows.
+- `assets/figma-plugin/`: prebuilt companion ZIP and bilingual installation guide.
 - `commands/implement-from-figma.md`: named-node implementation command.
 - `agents/figma-implementation-agent.md`: workflow for delegated implementation when requested.
 
 ## Upgrade
 
-Update Bridge, Figma plugin and Codex plugin together: this version changes the read protocol. Stop the old Bridge, clean/build it, update its global install or configured entry, refresh/reinstall the cached Codex plugin, and reopen both plugins/session. Review changed hooks in `/hooks` as required by Codex. The new hook deliberately refuses an old cache-based Bridge.
+Update/reinstall the Codex plugin to receive its bundled Bridge. Stop an existing
+Bridge before starting a new session if you want to switch to the new runtime;
+compatible running services are still reused. Review changed hooks in `/hooks`
+as required by Codex. The hook refuses an old cache-based Bridge. Figma companion
+updates still require reloading that plugin.
+
+For maintainers, run `pnpm --filter @codex-figma/codex-plugin build` after changing
+Bridge/Figma code, installation guide or dependencies. Include `runtime/` and
+`assets/figma-plugin/` in version control and releases:
+marketplace installation copies the directory without executing build scripts.
+`pnpm --filter @codex-figma/codex-plugin check:bundle` checks reproducibility, and
+`prepack` runs that check before packaging. The ZIP builds directly from Figma source with fixed timestamps and includes manifest, JS, HTML, guide, version and license. Startup tests copy the distributable
+plugin to an isolated directory with no node_modules or global Bridge, then
+exercise startup, reuse and the actual HTTP MCP interface.
 
 Changing port 11111 requires changing the Bridge environment, `.mcp.json`, Figma URL and manifest network domains. Saved Figma URLs are preserved and may need manual updating.
 

@@ -1,7 +1,8 @@
 # Codex CLI MCP server config — append to ~/.codex/config.toml
 #
 # Points Codex at the local Codex Figma Bridge. The installed plugin includes
-# a SessionStart hook. If you use only this manual configuration, start the
+# its own Bridge runtime and a SessionStart hook; it needs neither this snippet
+# nor a separate npm install. If you use only this manual configuration, start the
 # bridge with pnpm start or add the optional hook below.
 
 [mcp_servers.codex-figma-bridge]

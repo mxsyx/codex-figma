@@ -16,7 +16,7 @@ pnpm --filter @codex-figma/bridge build
 pnpm --filter @codex-figma/bridge start
 ```
 
-The [Codex plugin](../codex-plugin) can start/reuse a background instance through its SessionStart hook. A compiled bridge takes precedence over the source fallback; rebuild after source changes. Use `pnpm --filter @codex-figma/bridge dev` for development.
+Normal users install only the [Codex plugin](../codex-plugin), which bundles the Bridge and all npm runtime dependencies and starts/reuses it through SessionStart. The commands above are for standalone Bridge development or manual MCP setups. A compiled bridge takes precedence over the source fallback; rebuild after source changes. Use `pnpm --filter @codex-figma/bridge dev` for development.
 
 The Figma plugin must remain open and connected. Exactly one Figma plugin connection is required; multiple Codex sessions may share it.
 
