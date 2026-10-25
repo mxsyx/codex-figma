@@ -1,22 +1,19 @@
 /**
  * Composes the route handlers into a single Node http.Server. The server
- * holds no state of its own — all state lives in ContextStore, the SSE
- * broadcaster, and the McpRouteHandler session map.
+ * only tracks connections and pending requests. No design data is cached.
  */
 import {
   createServer as createHttpServer,
   type IncomingMessage,
   ServerResponse,
 } from "node:http";
-import type { ContextStore } from "./store/context-store.js";
 import type { SseBroadcaster } from "./util/sse.js";
-import type { PendingFetchRegistry } from "./store/pending-fetch.js";
+import type { PendingQueryRegistry } from "./store/pending-query.js";
 import type { PendingDesignRegistry } from "./store/pending-design.js";
 import type { PendingComponentsRegistry } from "./store/pending-components.js";
 import type { Logger } from "./util/logger.js";
 import { handleHealth, BRIDGE_VERSION } from "./routes/health.js";
-import { handlePostSelection } from "./routes/selection.js";
-import { handlePostNode } from "./routes/node.js";
+import { handleQueryResult } from "./routes/query-result.js";
 import { handlePostDesignResult } from "./routes/design-result.js";
 import { handlePostComponents } from "./routes/components.js";
 import { handleEvents } from "./routes/events.js";
@@ -25,9 +22,8 @@ import { handlePreflight, applyCorsHeaders } from "./util/cors.js";
 import { sendJson, sendError } from "./util/http.js";
 
 export interface ServerDeps {
-  store: ContextStore;
   sse: SseBroadcaster;
-  pendingFetch: PendingFetchRegistry;
+  pendingQuery: PendingQueryRegistry;
   pendingDesign: PendingDesignRegistry;
   pendingComponents: PendingComponentsRegistry;
   log: Logger;
@@ -38,9 +34,8 @@ export function createServer(
   deps: ServerDeps,
 ): ReturnType<typeof createHttpServer> {
   const {
-    store,
     sse,
-    pendingFetch,
+    pendingQuery,
     pendingDesign,
     pendingComponents,
     log,
@@ -60,15 +55,11 @@ export function createServer(
     try {
       switch (true) {
         case path === "/health" && req.method === "GET":
-          handleHealth(req, res, store);
+          handleHealth(req, res, sse);
           return;
 
-        case path === "/selection" && req.method === "POST":
-          await handlePostSelection(req, res, { store, sse, log });
-          return;
-
-        case path === "/node" && req.method === "POST":
-          await handlePostNode(req, res, { store, pendingFetch, log });
+        case path === "/query/result" && req.method === "POST":
+          await handleQueryResult(req, res, pendingQuery);
           return;
 
         case path === "/design/result" && req.method === "POST":
@@ -77,14 +68,13 @@ export function createServer(
 
         case path === "/components" && req.method === "POST":
           await handlePostComponents(req, res, {
-            store,
             pendingComponents,
             log,
           });
           return;
 
         case path === "/events" && req.method === "GET":
-          handleEvents(req, res, { store, sse });
+          handleEvents(req, res, sse);
           return;
 
         case path === "/mcp":
@@ -97,8 +87,7 @@ export function createServer(
             version: BRIDGE_VERSION,
             endpoints: {
               health: "GET /health",
-              selection: "POST /selection",
-              node: "POST /node",
+              queryResult: "POST /query/result",
               designResult: "POST /design/result",
               components: "POST /components",
               events: "GET /events (SSE)",

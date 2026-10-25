@@ -1,7 +1,7 @@
 {
   "name": "@codex-figma/figma-plugin",
   "version": "0.0.2",
-  "description": "Figma Desktop plugin that captures the live selection and generates structured designs requested by Codex.",
+  "description": "Figma plugin serving live name-based queries and one-click design generation.",
   "license": "MIT",
   "private": true,
   "scripts": {

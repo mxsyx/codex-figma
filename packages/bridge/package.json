@@ -1,7 +1,7 @@
 {
   "name": "@codex-figma/bridge",
   "version": "0.0.2",
-  "description": "Local HTTP bridge + MCP server that exposes the user's live Figma selection to Codex CLI.",
+  "description": "Live HTTP and MCP bridge for querying named nodes in the connected Figma file.",
   "type": "module",
   "license": "MIT",
   "author": {
@@ -46,6 +46,7 @@
     "start": "node bin/codex-figma-bridge.mjs",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test tests/*.test.mjs",
     "clean": "rm -rf dist"
   },
   "dependencies": {

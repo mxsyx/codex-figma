@@ -2,10 +2,15 @@
   "name": "@codex-figma/codex-plugin",
   "version": "0.0.2",
   "private": true,
-  "description": "Codex plugin manifest + skills teaching Codex CLI to use the local Figma bridge via MCP.",
+  "description": "Codex plugin for implementing named Figma nodes from live queries and generating designs.",
   "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
   "files": [
     ".codex-plugin",
+    ".mcp.json",
+    "hooks",
     "skills",
     "commands",
     "agents",

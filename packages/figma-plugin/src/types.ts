@@ -1,10 +1,10 @@
 /**
- * Shared TypeScript types for the captured payload. These mirror the zod
+ * Shared TypeScript types for live requests and responses. These mirror the zod
  * schemas in bridge/src/store/schema.ts — keep the two in sync when you
  * change either side.
  *
- * The Figma plugin produces a CapturedSelection; the bridge validates it
- * against the zod schema and persists it.
+ * The Figma plugin returns live query results; the bridge validates them
+ * against the zod schema and delivers them to the waiting caller.
  */
 
 export interface Color {
@@ -132,18 +132,6 @@ export interface SerializedNode {
   children: SerializedNode[] | null;
 }
 
-export interface SelectionEntry {
-  id: string;
-  name: string;
-  type: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  parentId: string | null;
-  visible: boolean;
-}
-
 export interface AssetPayload {
   format: 'PNG' | 'SVG';
   mime: string;
@@ -152,19 +140,35 @@ export interface AssetPayload {
   height?: number | null;
 }
 
-export interface CapturedSelection {
-  fileKey: string;
-  fileName: string;
-  pageId: string;
-  pageName: string;
-  capturedAt: string;
-  pluginVersion: string;
-  selection: SelectionEntry[];
-  nodes: Record<string, SerializedNode>;
-  assets: Record<string, AssetPayload>;
+export interface NodeQuery {
+  requestId: string;
+  operation: 'resolve' | 'node' | 'screenshot' | 'asset' | 'variables';
+  nodeName: string;
+  choice?: { documentId: string; nodeId: string };
+  offset: number;
+  limit: number;
+  depth: number;
+  format?: 'PNG' | 'SVG';
+  collectionName?: string;
 }
-
-export const PLUGIN_VERSION = '0.1.0';
+export interface NodeCandidate {
+  nodeId: string; nodeName: string; type: string;
+  pageId: string; pageName: string; path: string[];
+  x: number; y: number; width: number; height: number;
+  screenshot: AssetPayload | null;
+  screenshotError?: string;
+}
+export interface NodeQueryResult {
+  requestId: string; operation: NodeQuery['operation']; nodeName: string;
+  status: 'unique' | 'ambiguous' | 'not_found' | 'stale_choice' | 'error';
+  document?: { id: string; fileKey: string | null; fileName: string };
+  total: number; offset: number; nextOffset: number | null;
+  candidates: NodeCandidate[];
+  node?: SerializedNode;
+  image?: AssetPayload;
+  variables?: Array<{ nodeId: string; nodeName: string; binding: BoundVariableInfo }>;
+  error?: string;
+}
 
 export interface DesignColor {
   r: number;
@@ -236,6 +240,6 @@ export interface ComponentsResult {
   pageId?: string;
   pageName?: string;
   components: ComponentSummary[];
-  nodes: Record<string, SerializedNode>;
+  documentId?: string;
   error?: string;
 }

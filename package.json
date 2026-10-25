@@ -2,7 +2,7 @@
   "name": "codex-figma",
   "version": "0.0.1",
   "private": true,
-  "description": "Local Figma-to-Codex bridge: implement live Figma selections as code via a localhost MCP server.",
+  "description": "Local live Figma-to-Codex bridge: query named nodes across all pages and implement them as code.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/mxsyx/codex-figma.git"

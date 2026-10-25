@@ -1,188 +1,64 @@
-/**
- * Figma plugin sandbox entry. Owns the selectionchange listener, runs the
- * capture orchestrator, POSTs the result to the bridge, and mirrors status
- * to the iframe UI.
- *
- * Sandbox-side state is just config + a debounce timer. All payload state
- * lives in the capture orchestrator and is shipped to the bridge per push.
- */
-import { captureSelection, captureNode } from './capture.js';
-import {
-  postSelection,
-  postNode,
-  postDesignResult,
-  postComponents,
-  probeBridge,
-} from './bridge-client.js';
+/** Live request handler. Node data exists only while serving the current request. */
+import { queryNodes } from './query-nodes.js';
+import { postQueryResult, postDesignResult, postComponents } from './bridge-client.js';
 import { generateDesign } from './generate-design.js';
 import { captureComponents } from './extract/components-page.js';
 import type { UIToCodeMessage } from './messages.js';
 
-const DEFAULT_BRIDGE_URL = 'http://localhost:3845';
-const DEBOUNCE_MS = 500;
-const CLIENT_STORAGE_KEYS = {
-  bridgeUrl: 'codexFigmaBridge.url',
-  autoPush: 'codexFigmaBridge.autoPush',
-};
-
-figma.showUI(__html__, { width: 360, height: 480, themeColors: true });
-
+const DEFAULT_BRIDGE_URL = 'http://localhost:11111';
+const URL_KEY = 'codexFigmaBridge.url';
 let bridgeUrl = DEFAULT_BRIDGE_URL;
-let autoPush = true;
-let isCapturing = false;
-let lastPushAt = 0;
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-// --- Boot: load persisted config -----------------------------------------
-
-(async () => {
-  const [savedUrl, savedAutoPush] = await Promise.all([
-    figma.clientStorage.getAsync(CLIENT_STORAGE_KEYS.bridgeUrl),
-    figma.clientStorage.getAsync(CLIENT_STORAGE_KEYS.autoPush),
-  ]);
-  if (typeof savedUrl === 'string' && savedUrl.length > 0) bridgeUrl = savedUrl;
-  if (typeof savedAutoPush === 'boolean') autoPush = savedAutoPush;
-  sendConfigToUI();
-  // Probe the bridge so the UI shows a real connected/disconnected state on load.
-  const ok = await probeBridge(bridgeUrl);
-  figma.ui.postMessage({ kind: 'probe-result', ok });
+figma.showUI(__html__, { width: 360, height: 400, themeColors: true });
+const initialized = (async () => {
+  const saved = await figma.clientStorage.getAsync(URL_KEY);
+  if (typeof saved === 'string' && saved) bridgeUrl = saved;
 })();
-
-// --- Selection listener --------------------------------------------------
-
-figma.on('selectionchange', () => {
-  if (!autoPush) return;
-  if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    debounceTimer = null;
-    void pushNow();
-  }, DEBOUNCE_MS);
-});
-
-// --- UI message handler --------------------------------------------------
+const sendConfig = () => figma.ui.postMessage({ kind: 'config', bridgeUrl });
 
 figma.ui.onmessage = async (msg: UIToCodeMessage) => {
+  await initialized;
   switch (msg.kind) {
-    case 'push-now':
-      await pushNow();
-      break;
+    case 'get-config': sendConfig(); break;
     case 'set-config':
       bridgeUrl = msg.bridgeUrl || DEFAULT_BRIDGE_URL;
-      autoPush = !!msg.autoPush;
-      await Promise.all([
-        figma.clientStorage.setAsync(CLIENT_STORAGE_KEYS.bridgeUrl, bridgeUrl),
-        figma.clientStorage.setAsync(CLIENT_STORAGE_KEYS.autoPush, autoPush),
-      ]);
-      sendConfigToUI();
-      const ok = await probeBridge(bridgeUrl);
-      figma.ui.postMessage({ kind: 'probe-result', ok });
+      await figma.clientStorage.setAsync(URL_KEY, bridgeUrl);
+      sendConfig();
       break;
-    case 'get-config':
-      sendConfigToUI();
-      break;
-    case 'probe-bridge':
-      const okProbe = await probeBridge(bridgeUrl);
-      figma.ui.postMessage({ kind: 'probe-result', ok: okProbe });
-      break;
-    case 'fetch-node': {
-      const result = await captureNode(msg.nodeId);
-      const ok = await postNode(bridgeUrl, msg.requestId, msg.nodeId, result);
-      figma.ui.postMessage({
-        kind: 'fetch-node-result',
-        requestId: msg.requestId,
-        ok,
-        error: ok ? undefined : 'failed to POST node to bridge',
-      });
+    case 'node-query': {
+      const replyUrl = bridgeUrl;
+      figma.ui.postMessage({ kind: 'query-status', requestId: msg.query.requestId, message: `Querying “${msg.query.nodeName}” across all pages…` });
+      const result = await queryNodes(msg.query);
+      const delivered = await postQueryResult(replyUrl, result);
+      figma.ui.postMessage({ kind: 'query-status', requestId: msg.query.requestId,
+        ok: delivered && result.status !== 'error',
+        message: !delivered ? 'Query response was rejected or could not reach the bridge.'
+          : result.error ?? `${result.total} matching node(s) · ${result.status}` });
       break;
     }
     case 'generate-design': {
+      const replyUrl = bridgeUrl;
       try {
         const rootId = await generateDesign(msg.design);
-        const posted = await postDesignResult(bridgeUrl, msg.requestId, { ok: true, rootId });
-        figma.ui.postMessage({
-          kind: 'generate-design-result',
-          requestId: msg.requestId,
-          ok: posted,
-          rootId,
-          error: posted ? undefined : 'Design created, but the bridge could not be notified.',
-        });
+        const posted = await postDesignResult(replyUrl, msg.requestId, { ok: true, rootId });
+        figma.ui.postMessage({ kind: 'generate-design-result', requestId: msg.requestId,
+          ok: posted, rootId, error: posted ? undefined : 'Design created, but the bridge could not be notified.' });
       } catch (err) {
         const error = String(err instanceof Error ? err.message : err);
-        await postDesignResult(bridgeUrl, msg.requestId, { ok: false, error });
-        figma.ui.postMessage({
-          kind: 'generate-design-result',
-          requestId: msg.requestId,
-          ok: false,
-          error,
-        });
+        await postDesignResult(replyUrl, msg.requestId, { ok: false, error });
+        figma.ui.postMessage({ kind: 'generate-design-result', requestId: msg.requestId, ok: false, error });
       }
       break;
     }
     case 'list-components': {
-      const result = await captureComponents(
-        msg.requestId,
-        msg.pageName,
-        msg.query,
-      );
-      const posted = await postComponents(bridgeUrl, result);
-      if (!posted) {
-        figma.ui.postMessage({
-          kind: 'components-result',
-          requestId: msg.requestId,
-          ok: false,
-          error: 'Component scan completed, but the bridge could not be notified.',
-        });
-      } else {
-        figma.ui.postMessage({
-          kind: 'components-result',
-          requestId: msg.requestId,
-          ok: true,
-          componentCount: result.components.length,
-        });
-      }
+      const replyUrl = bridgeUrl;
+      const result = await captureComponents(msg.requestId, msg.pageName, msg.query).catch((err) => ({
+        requestId: msg.requestId, found: false, components: [], error: String(err),
+      }));
+      const posted = await postComponents(replyUrl, result);
+      figma.ui.postMessage({ kind: 'components-result', requestId: msg.requestId,
+        ok: posted && result.found, componentCount: result.components.length,
+        error: posted ? result.error : 'Component response could not reach the bridge.' });
       break;
     }
   }
 };
-
-// --- Core: capture + POST ------------------------------------------------
-
-async function pushNow(): Promise<void> {
-  if (isCapturing) return;
-  isCapturing = true;
-  figma.ui.postMessage({ kind: 'capturing', isCapturing: true });
-  try {
-    const { payload, stats } = await captureSelection();
-    if (payload.selection.length === 0) {
-      figma.ui.postMessage({
-        kind: 'push-result',
-        ok: false,
-        error: 'Nothing selected. Select a frame, component, or node in Figma first.',
-      });
-      return;
-    }
-    const result = await postSelection(bridgeUrl, payload);
-    lastPushAt = Date.now();
-    figma.ui.postMessage({
-      kind: 'push-result',
-      ok: result.ok,
-      capturedAt: result.capturedAt ?? payload.capturedAt,
-      stats,
-      error: result.error,
-      bridgeUrl,
-    });
-  } catch (err) {
-    figma.ui.postMessage({
-      kind: 'push-result',
-      ok: false,
-      error: String(err instanceof Error ? err.message : err),
-    });
-  } finally {
-    isCapturing = false;
-    figma.ui.postMessage({ kind: 'capturing', isCapturing: false });
-  }
-}
-
-function sendConfigToUI(): void {
-  figma.ui.postMessage({ kind: 'config', bridgeUrl, autoPush });
-}

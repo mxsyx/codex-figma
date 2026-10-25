@@ -20,7 +20,6 @@ export class PendingComponentsRegistry {
             requestId,
             found: false,
             components: [],
-            nodes: {},
             error: `plugin did not scan components within ${timeoutMs}ms — is the Figma plugin UI open?`,
           });
         }
@@ -30,12 +29,13 @@ export class PendingComponentsRegistry {
     });
   }
 
-  resolve(requestId: string, result: ComponentsResult): void {
+  resolve(requestId: string, result: ComponentsResult): boolean {
     const entry = this.pending.get(requestId);
-    if (!entry) return;
+    if (!entry) return false;
     clearTimeout(entry.timer);
     this.pending.delete(requestId);
     entry.resolve(result);
+    return true;
   }
 
   size(): number {

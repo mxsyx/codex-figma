@@ -23,8 +23,8 @@ If the bridge or plugin is unavailable, tell the user exactly what to open. Do n
 1. Restate the business goal and audience in one concise sentence.
 2. Decide the screen name, dimensions, and major business areas. Use desktop `1440×900`, tablet `834×1112`, or mobile `390×844` unless the user specifies otherwise.
 3. Identify the target Figma page from phrases such as “写入 ShopifyApp” or “put it on the ShopifyApp page”. Put that exact page name in `targetPage`; the plugin will use the existing page or create it if it is missing.
-4. Identify the component-library page from phrases such as “使用 Polaris 页面下的组件” or “use the components on the Polaris page”. Call `list_components` with `{ "pageName": "Polaris" }` to cache and list every component on that page. Add `"query": "button"` when the user asks for a specific component or when the result is too large.
-5. For each likely component, call `get_node` with the returned component id. Inspect its tree and `component.componentPropertyDefinitions`. Prefer actual `COMPONENT` nodes over `COMPONENT_SET` nodes when creating instances. Use the component id and its property keys/values to build overrides.
+4. Identify the component-library page from phrases such as “使用 Polaris 页面下的组件” or “use the components on the Polaris page”. Call `list_components` with `{ "pageName": "Polaris" }` to query and list every component on that page live. Add `"query": "button"` when the user asks for a specific component or when the result is too large.
+5. For each likely component, call `get_node` with the returned component name as `nodeName` and its `choice`. Inspect its tree and `component.componentPropertyDefinitions`. Prefer actual `COMPONENT` nodes over `COMPONENT_SET` nodes when creating instances. Use the component id and its property keys/values to build overrides.
 6. Split the design into one or more business groups. Every group must have a clear business name, such as `Primary Navigation`, `Revenue KPIs`, `Customer Filters`, `Conversion Chart`, or `Action Bar`. Do not use generic names such as `Group 1`.
 7. Build a complete `design` object that follows the schema below. Coordinates are relative to the root frame for first-level group children, and relative to their parent frame for nested children.
 8. Call the local `generate_design` tool exactly once:
@@ -87,7 +87,7 @@ If the user says “使用 Polaris 页面下的 Button、Badge 和 Card 组件�
 { "pageName": "Polaris" }
 ```
 
-Then call `get_node` for each matching component id. A design node using a discovered component looks like:
+Then call `get_node` with each component name and its returned `choice`. All reads are live; no design data is retained by the bridge. A design node using a discovered component looks like:
 
 ```json
 {

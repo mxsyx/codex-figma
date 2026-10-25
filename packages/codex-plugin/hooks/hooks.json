@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/hooks/session-start.mjs\"",
+            "timeout": 20,
+            "statusMessage": "Starting Codex Figma Bridge"
+          }
+        ]
+      }
+    ]
+  }
+}

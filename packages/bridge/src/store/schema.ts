@@ -1,8 +1,6 @@
 /**
- * Shared payload schemas that define the wire contract between the Figma
- * plugin (producer) and the bridge (consumer). The Figma plugin POSTs a
- * `CapturedSelection` to `POST /selection`; the bridge validates it against
- * `capturedSelectionSchema` before persisting.
+ * Request/response schemas for live Figma queries and design generation.
+ * Query results are validated, delivered to the caller, then released.
  *
  * Keep this file dependency-free except for zod so it stays easy to reason
  * about. Derived TypeScript types are exported alongside the schemas.
@@ -228,42 +226,45 @@ export const assetPayloadSchema = z.object({
   height: z.number().nullable().optional(),
 });
 
-// --- Selection summary ----------------------------------------------------
-
-export const selectionEntrySchema = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    type: z.string(),
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
-    parentId: z.string().nullable(),
-    visible: z.boolean(),
-  })
-  .passthrough();
-
-// --- Top-level payload ----------------------------------------------------
-
-export const capturedSelectionSchema = z
-  .object({
-    fileKey: z.string(),
-    fileName: z.string(),
-    pageId: z.string(),
-    pageName: z.string(),
-    capturedAt: z.string(),
-    pluginVersion: z.string(),
-    selection: z.array(selectionEntrySchema),
-    nodes: z.record(z.string(), serializedNodeSchema),
-    assets: z.record(z.string(), assetPayloadSchema),
-  })
-  .passthrough();
-
-export type CapturedSelection = z.infer<typeof capturedSelectionSchema>;
-export type SelectionEntry = z.infer<typeof selectionEntrySchema>;
 export type AssetPayload = z.infer<typeof assetPayloadSchema>;
 export type BoundVariable = z.infer<typeof boundVariableSchema>;
+
+// Each request searches the live file by name. A choice is only a disambiguator;
+// it never enables lookup by ID or reuse of an old query result.
+export const nodeChoiceSchema = z.object({ documentId: z.string().min(1), nodeId: z.string().min(1) }).strict();
+export const nodeQuerySchema = z.object({
+  requestId: z.string().min(1),
+  operation: z.enum(['resolve', 'node', 'screenshot', 'asset', 'variables']),
+  nodeName: z.string().min(1),
+  choice: nodeChoiceSchema.optional(),
+  offset: z.number().int().min(0).default(0),
+  limit: z.number().int().min(1).max(6).default(6),
+  depth: z.number().int().min(0).max(20).default(5),
+  format: z.enum(['PNG', 'SVG']).optional(),
+  collectionName: z.string().optional(),
+}).strict();
+
+export const nodeCandidateSchema = z.object({
+  nodeId: z.string(), nodeName: z.string(), type: z.string(),
+  pageId: z.string(), pageName: z.string(), path: z.array(z.string()),
+  x: z.number(), y: z.number(), width: z.number(), height: z.number(),
+  screenshot: assetPayloadSchema.extend({ format: z.literal('PNG'), mime: z.literal('image/png') }).nullable(),
+  screenshotError: z.string().optional(),
+});
+export const nodeQueryResultSchema = z.object({
+  requestId: z.string(), operation: nodeQuerySchema.shape.operation, nodeName: z.string(),
+  status: z.enum(['unique', 'ambiguous', 'not_found', 'stale_choice', 'error']),
+  document: z.object({ id: z.string(), fileKey: z.string().nullable(), fileName: z.string() }).optional(),
+  total: z.number().int().min(0), offset: z.number().int().min(0),
+  nextOffset: z.number().int().min(0).nullable(),
+  candidates: z.array(nodeCandidateSchema),
+  node: serializedNodeSchema.optional(),
+  image: assetPayloadSchema.optional(),
+  variables: z.array(z.object({ nodeId: z.string(), nodeName: z.string(), binding: boundVariableSchema })).optional(),
+  error: z.string().optional(),
+}).strict();
+export type NodeQuery = z.infer<typeof nodeQuerySchema>;
+export type NodeQueryResult = z.infer<typeof nodeQueryResultSchema>;
 
 // --- Codex-generated design -------------------------------------------------
 
@@ -391,7 +392,7 @@ export const componentsResultSchema = z
     pageId: z.string().optional(),
     pageName: z.string().optional(),
     components: z.array(componentSummarySchema),
-    nodes: z.record(z.string(), serializedNodeSchema),
+    documentId: z.string().optional(),
     error: z.string().max(2000).optional(),
   })
   .strict();

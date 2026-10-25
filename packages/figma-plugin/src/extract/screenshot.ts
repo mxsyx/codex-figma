@@ -21,7 +21,7 @@ export async function exportPng(
       format: "PNG",
       constraint: { type: "SCALE", value: scale },
     });
-    const base64 = bytesToBase64(bytes);
+    const base64 = figma.base64Encode(bytes);
     const box = node.absoluteBoundingBox;
     return {
       format: "PNG",
@@ -42,28 +42,11 @@ export async function exportSvg(node: SceneNode): Promise<AssetPayload | null> {
     return {
       format: "SVG",
       mime: SVG_MIME,
-      base64: bytesToBase64(bytes),
+      base64: figma.base64Encode(bytes),
       width: null,
       height: null,
     };
   } catch {
     return null;
   }
-}
-
-/** Figma returns Uint8Array; convert to base64 without blowing the call stack on large PNGs. */
-function bytesToBase64(bytes: Uint8Array): string {
-  // Chunk in 0x8000-byte runs to stay under String.fromCharCode arg limits.
-  const CHUNK = 0x8000;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    const slice = bytes.subarray(i, Math.min(i + CHUNK, bytes.length));
-    binary += String.fromCharCode.apply(
-      null,
-      Array.from(slice) as unknown as number[],
-    );
-  }
-  // btoa is available in the plugin sandbox.
-  // eslint-disable-next-line no-undef
-  return btoa(binary);
 }

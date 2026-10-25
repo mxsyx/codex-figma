@@ -1,8 +1,17 @@
 # Codex CLI MCP server config — append to ~/.codex/config.toml
 #
-# Points Codex at the local Codex Figma Bridge. The bridge must already be
-# running (cd bridge && npm start) before Codex tries to call any Figma tool.
+# Points Codex at the local Codex Figma Bridge. The installed plugin includes
+# a SessionStart hook. If you use only this manual configuration, start the
+# bridge with pnpm start or add the optional hook below.
 
 [mcp_servers.codex-figma-bridge]
 type = "http"
-url = "http://localhost:3845/mcp"
+url = "http://localhost:11111/mcp"
+
+# Optional for manual MCP setup ONLY (the installed plugin already has this).
+# Replace the absolute path, then review and trust the hook in Codex /hooks.
+# [[hooks.SessionStart]]
+# [[hooks.SessionStart.hooks]]
+# type = "command"
+# command = 'node "/absolute/path/to/codex-figma/packages/codex-plugin/hooks/session-start.mjs"'
+# timeout = 20

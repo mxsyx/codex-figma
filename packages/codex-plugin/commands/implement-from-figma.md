@@ -1,22 +1,16 @@
 # /implement-from-figma
 
-Implement the user's current Figma selection into project code via the local Codex Figma Bridge.
+Implement the named Figma node through live bridge queries.
 
-## Arguments
+Example: **实现 figma 节点「登录页」**.
 
-- `target`: optional file/component target hint (e.g. `src/components/Button.tsx`)
-- `mode`: `component` or `screen` (optional; infer if omitted)
+Optional arguments: `nodeName` (exact layer name), `target` (project file/component),
+`mode` (component or screen). Natural-language names are preferred; do not require IDs.
 
-## Workflow
-
-1. Call `get_selection` to read what the user has currently selected in Figma.
-   - If the selection is empty, ask the user to select a frame in Figma Desktop and click "Push now" in the Codex Figma Bridge plugin UI.
-2. For each selected root, call `get_node` (depth 5, all flags on) and `get_screenshot`.
-3. Walk the tree, call `get_asset` (SVG) for every VECTOR / BOOLEAN_OPERATION descendant, and commit the bytes to the project's assets directory.
-4. Implement using project conventions and reusable components. Map Figma variables to project tokens via `get_variables`.
-5. Run local lint / typecheck / preview.
-6. Summarize what was implemented and list any known limitations.
-
-## Escalation
-
-Delegate to `figma-implementation-agent` for substantial UI work or multi-file changes.
+1. Load `figma-implement-design`, then call `resolve_node` with the extracted name.
+2. For duplicate names across any pages, show all candidate screenshots and paths,
+   then STOP and wait for the user's choice. Preserve the number-to-choice mapping.
+3. Read the chosen design with `get_node` and `get_screenshot`, always by name plus
+   the confirmed internal choice. Re-resolve stale choices; never reuse old data.
+4. Query assets and variables live, reuse project components, and implement.
+5. Run relevant checks and report differences. No selection upload is required.

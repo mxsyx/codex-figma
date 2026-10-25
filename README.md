@@ -1,373 +1,105 @@
 # Codex Figma Bridge
 
-Implement your **live Figma selection** as code, or generate a structured Figma design from **natural-language product intent** — no Figma URL, no cloud connector, no Dev Seat required.
+[简体中文](README.zh-CN.md)
 
-A Figma Desktop plugin captures the user's current selection (node tree, styles, text, variables, components, screenshots, SVG icons) and ships it over HTTP to a **local bridge** running on `localhost:3845`. The bridge caches the context and exposes it to Codex CLI through an **MCP server**. Codex reads node info + screenshots and modifies the local repository, then runs lint / typecheck.
+Implement a Figma design by its name:
 
-```
-┌───────────────────────────────┐
-│          Figma Desktop        │
-│                               │
-│   用户选中 Frame / Group       │
-│              │                │
-│              ▼                │
-│       Figma Plugin            │
-│   ┌───────────────────────┐   │
-│   │ selection             │   │
-│   │ node tree             │   │
-│   │ CSS / Auto Layout     │   │
-│   │ text                  │   │
-│   │ variables             │   │
-│   │ component info        │   │
-│   │ screenshot / SVG      │   │
-│   └──────────┬────────────┘   │
-└──────────────┼────────────────┘
-               │ HTTP (POST /selection + GET /events SSE)
-               ▼
-┌───────────────────────────────┐
-│        Local Bridge           │
-│      localhost:3845           │
-│                               │
-│   current-selection.json      │
-│   images / screenshots        │
-│   Figma context cache         │
-│                               │
-│   MCP Server (Streamable HTTP)│
-│   ├─ get_selection            │
-│   ├─ get_node                 │
-│   ├─ get_screenshot           │
-│   ├─ get_asset                │
-│   ├─ list_nodes               │
-│   ├─ get_variables            │
-│   └─ generate_design          │
-└──────────────┬────────────────┘
-               │ MCP (POST /mcp)
-               ▼
-┌───────────────────────────────┐
-│         Codex CLI / IDE       │
-│                               │
-│  读取当前 repository          │
-│  读取 AGENTS.md               │
-│  调用 Figma MCP tools         │
-│  修改 React / CSS / Tailwind  │
-│  运行 lint / typecheck        │
-└───────────────────────────────┘
+> 实现 figma 节点「登录页」
+>
+> Implement the Figma node “Login page”.
+
+Keep the plugin open in the target Figma file. Every read searches **all pages of that file** by exact node name, including hidden and unselected nodes. No selection, node ID in the prompt, or Push button is needed. The scope is the connected file, not every file in a team project.
+
+When several nodes share the name, Codex shows numbered screenshots with page/layer paths and dimensions, then waits for your choice. The chosen document/node identity is carried internally; subsequent reads still search by name. Renaming/deleting the node or restarting the plugin invalidates the old choice.
+
+## How it works
+
+```text
+Codex → MCP (nodeName) → Bridge → SSE → Figma plugin
+Codex ← live node/image ← Bridge ← request response ← full-file search
 ```
 
-## Repository layout
+There is no Push, selection sync, design cache or stored node index. The bridge retains connections and pending requests only, plus operational logs. Completed results are released. Disconnected plugins and timed-out queries report errors instead of returning old designs. Data already received in the Codex conversation remains conversation context; each tool call queries Figma afresh.
 
-| Path                                                     | Component               | What it does                                                               |
-| -------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
-| [`figma-plugin/`](packages/figma-plugin/)                | Figma Desktop plugin    | Captures the live selection + ships it to the bridge.                      |
-| [`bridge/`](packages/bridge/)                            | Local HTTP + MCP server | Caches the selection on disk; exposes MCP tools to Codex.                  |
-| [`codex-plugin/`](packages/codex-plugin/)                | Codex CLI plugin        | Skill + command + agents that teach Codex how to use the local MCP tools.  |
-| [`2.0.17/`](2.0.17/)                                     | Reference (read-only)   | Figma's official Codex plugin (cloud-connector variant) for comparison.    |
-| [`AGENTS.md.template`](AGENTS.md.template)               | Drop-in rules           | Copy into your target repo to guide Codex when implementing Figma designs. |
-| [`codex-config.snippet.toml`](codex-config.snippet.toml) | Codex config            | MCP server snippet for `~/.codex/config.toml`.                             |
+Design generation is also supported: Codex sends `generate_design`, and you click **Generate design** in Figma. `list_components` reads a named component library page live for workflows such as Polaris reuse.
 
-## Prerequisites
+## Install
 
-- **Node.js ≥ 20** (tested on Node 22)
-- **Figma Desktop** (the plugin API only runs in the desktop app, not the browser)
-- **Codex CLI** with MCP support
-
-## Setup (3 steps)
-
-### 1. Start the bridge
+Requires Node.js 20+, pnpm and Figma Desktop. From the repository root:
 
 ```bash
-pnpm install        # root-level: installs all workspace packages (bridge + figma-plugin + codex-plugin)
-pnpm start          # = pnpm --filter @codex-figma/bridge run start
-```
-
-You should see:
-
-```
-codex-figma-bridge v0.1.0 listening on http://127.0.0.1:3845
-  cache: ~/Library/Caches/codex-figma-bridge
-  mcp:   http://127.0.0.1:3845/mcp
-```
-
-Smoke-test it:
-
-```bash
-curl http://localhost:3845/health
-# → {"ok":true,"version":"0.1.0","capturedAt":null,"selectionCount":0,...}
-```
-
-### 2. Install the Figma plugin
-
-1. `cd packages/figma-plugin && npm install && npm run build`
-2. Open Figma Desktop → **Menu → Plugins → Development → New Plugin…**
-3. Click **"Click to link a plugin from your file system"**
-4. Select [`figma-plugin/manifest.json`](packages/figma-plugin/manifest.json).
-5. Run the plugin from the menu (Menu → Plugins → Development → Codex Figma Bridge).
-6. In the plugin panel:
-   - Confirm the bridge URL is `http://localhost:3845`.
-   - The status pill should say **"bridge up"**.
-   - Toggle **Auto-push on selection change** on.
-7. Select a frame in Figma. The panel should flash "just now · 1 selected · N nodes · 1 screenshot · M icons".
-
-Verify on disk:
-
-```bash
-cat ~/Library/Caches/codex-figma-bridge/current-selection.json
-```
-
-### 3. Configure Codex CLI
-
-**Recommended — install the Codex plugin.** This registers the MCP server automatically via [.mcp.json](packages/codex-plugin/.mcp.json) bundled with the plugin, and adds the `figma-implement-design` skill + `/implement-from-figma` command — no manual `config.toml` editing required.
-
-Codex uses a two-tier marketplace system: register a marketplace source (this repo ships [.agents/plugins/marketplace.json](.agents/plugins/marketplace.json)), then install the plugin from it.
-
-**Option A — from Git (recommended for distribution):**
-
-```bash
-codex plugin marketplace add git@github.com:mxsyx/codex-figma.git
-codex plugin add codex-figma-bridge@codex-figma
-```
-
-**Option B — from a local clone (for plugin development):**
-
-```bash
+pnpm install
+pnpm build
+npm install -g ./packages/bridge
 codex plugin marketplace add .
 codex plugin add codex-figma-bridge@codex-figma
 ```
 
-Both options register a marketplace named `codex-figma` (read from `marketplace.json`), so only one can be active at a time — run `codex plugin marketplace remove codex-figma` before switching sources.
+In Figma's development plugins menu, choose **Import plugin from manifest…** and import `packages/figma-plugin/manifest.json`. Run **Codex Figma Bridge** in the target file with `http://localhost:11111` as its Bridge URL.
 
-Verify the plugin and its bundled MCP server are registered:
+The Codex plugin supplies MCP configuration and a SessionStart hook. Review/trust it through Codex `/hooks`; new sessions then start the background bridge or reuse an existing compatible instance. The bridge remains running between sessions. The hook never downloads dependencies or kills another service occupying the port.
 
-```bash
-codex plugin list --marketplace codex-figma --available --json
-codex mcp list | grep codex-figma-bridge   # → enabled, http://localhost:3845/mcp
-```
-
-To uninstall or remove the marketplace later:
+If the installed plugin cannot locate the bridge, export its entry path before starting Codex:
 
 ```bash
-codex plugin remove codex-figma-bridge@codex-figma
-codex plugin marketplace remove codex-figma
+export CODEX_FIGMA_BRIDGE_ENTRY=/absolute/path/to/codex-figma/packages/bridge/bin/codex-figma-bridge.mjs
 ```
 
-**Fallback — configure MCP manually (if you skip the plugin).** Append the snippet from [`codex-config.snippet.toml`](codex-config.snippet.toml) to `~/.codex/config.toml`, and copy [`AGENTS.md.template`](AGENTS.md.template) into your target repo as `AGENTS.md` so Codex still learns the workflow:
+For manual setup without the Codex plugin, see [the MCP configuration snippet](codex-config.snippet.toml) and [AGENTS template](AGENTS.md.template), then run `pnpm start`.
 
-```toml
-[mcp_servers.codex-figma-bridge]
-type = "http"
-url = "http://localhost:3845/mcp"
-```
+## Use
 
-## Usage
+1. Keep one Figma plugin connected in the target file; wait for `bridge up`.
+2. Ask Codex to implement a node by name.
+3. If names repeat, inspect the screenshots and reply with a candidate number.
+4. Codex reads the chosen node's current design and implements it.
 
-In any target repository, with the bridge running and a frame selected in Figma:
-
-```bash
-codex "implement my current Figma selection as a React component"
-```
-
-Or with the plugin installed:
-
-```
-/implement-from-figma
-```
-
-Codex will:
-
-1. Call `get_selection` → see what you've selected.
-2. Call `get_node` → read the full node tree (layout, styles, text, variables, components).
-3. Call `get_screenshot` → fetch the visual reference.
-4. Call `get_asset` for each icon → fetch SVG bytes and commit them.
-5. Adapt the design to your project's stack (reuse existing components + tokens).
-6. Run lint / typecheck / preview and report parity.
-
-### Generate a design from intent
-
-With the bridge running and the **Codex Figma Bridge** plugin open in Figma Desktop:
-
-```bash
-codex "Generate a Figma design for an admin dashboard that shows revenue KPIs, churn risk, and recent payments"
-```
-
-Codex loads the `figma-generate-design-from-intent` skill, translates the business intent into a structured design specification, and calls `generate_design`. The plugin displays the pending design. After you click **Generate design**, it creates a business-named root frame and business-named Figma Groups such as `Revenue KPIs`, `Churn Risk`, and `Recent Payments`.
-
-When the user names a component library and destination page:
-
-```bash
-codex "Use the Button, Badge, and Card components on the Polaris page to design a customer revenue dashboard, and write it to the ShopifyApp page"
-```
-
-Codex first calls `list_components` to scan the `Polaris` page, then `get_node` to inspect each matching component and its property definitions. The generated design references components by `componentId` and sets `targetPage: "ShopifyApp"`. The plugin creates the destination page if it does not exist.
+Names match exactly and case-sensitively. Candidates are paginated in batches of up to six; Codex must collect all pages before asking. Failed screenshots do not remove candidates: their path, dimensions and export error remain available. Multiple connected plugins are rejected to avoid reading the wrong file.
 
 ## MCP tools
 
-| Tool             | Input                                                                 | Returns                                         |
-| ---------------- | --------------------------------------------------------------------- | ----------------------------------------------- |
-| `get_selection`  | (none)                                                                | File/page/selection summary. Always call first. |
-| `get_node`       | `{ nodeId, depth?, includeStyles?, includeVariables?, includeText? }` | Serialized node tree.                           |
-| `get_screenshot` | `{ nodeId, format? }`                                                 | PNG image content (base64).                     |
-| `get_asset`      | `{ nodeId, format? }`                                                 | SVG (preferred for icons) or PNG image content. |
-| `list_nodes`     | `{ type?, name? }`                                                    | Search hits across cached trees.                |
-| `get_variables`  | `{ collectionName? }`                                                 | Design-token bindings.                          |
-| `generate_design` | `{ design }`                                                          | Sends a structured design for one-click generation. |
-| `list_components` | `{ pageName, query? }`                                                 | Scans components on a named page and caches their node trees. |
+| Tool | Purpose |
+| --- | --- |
+| `resolve_node` | Search all pages by `nodeName`, returning candidates and previews |
+| `get_node` | Read the current node tree by name; depth defaults to 5, range 0–20 |
+| `get_screenshot` | Export a fresh PNG by name |
+| `get_asset` | Export SVG for vector nodes, or PNG, by name |
+| `get_variables` | Read current variable bindings in a named subtree |
+| `list_components` | Read component metadata on a named library page |
+| `generate_design` | Send a design for one-click creation in Figma |
 
-Plus the MCP resource `figma://selection/current`.
+All node reads require `nodeName`. The optional `choice` is an internal disambiguator, not a prompt parameter. Removed APIs: `get_selection`, `list_nodes`, `figma://selection/current`, `POST /selection`, and `POST /node`.
 
-## Cache layout
+## Upgrade and development
 
-The bridge writes to `~/Library/Caches/codex-figma-bridge/` (macOS) or `~/.cache/codex-figma-bridge/` (Linux). Override with `CODEX_FIGMA_BRIDGE_ROOT`.
-
-```
-codex-figma-bridge/
-├── current-selection.json    # latest selection summary
-├── nodes/<id>.json           # one file per captured node tree root
-├── assets/<id>.png           # PNG screenshots
-├── assets/<id>.svg           # SVG icons
-├── events.jsonl              # append-only event log
-└── bridge.log                # structured logs
-```
-
-## Configuration
-
-| Env var                        | Default                             | What it does                            |
-| ------------------------------ | ----------------------------------- | --------------------------------------- |
-| `CODEX_FIGMA_BRIDGE_PORT`      | `3845`                              | Port the bridge listens on.             |
-| `CODEX_FIGMA_BRIDGE_HOST`      | `127.0.0.1`                         | Host the bridge binds to.               |
-| `CODEX_FIGMA_BRIDGE_ROOT`      | OS cache dir + `codex-figma-bridge` | Where the cache lives.                  |
-| `CODEX_FIGMA_BRIDGE_LOG_LEVEL` | `info`                              | `debug` \| `info` \| `warn` \| `error`. |
-
-If you change the port, also update [`figma-plugin/manifest.json`](packages/figma-plugin/manifest.json)'s `networkAccess.allowedDomains` and [`codex-config.snippet.toml`](codex-config.snippet.toml).
-
-## How it differs from Figma's official Codex plugin
-
-The reference plugin at [`2.0.17/`](2.0.17/) uses Figma's **cloud MCP connector** (declared in [`.app.json`](2.0.17/.app.json)) and operates on a Figma URL. That requires a Figma Dev Seat and a cloud relay.
-
-This project uses a **local bridge** instead:
-
-- No cloud connector — the Figma plugin talks HTTP to a localhost server.
-- No Figma URL — the agent sees the user's live selection.
-- No Dev Seat — works with any Figma account that can run plugins.
-- Read-only — the bridge cannot write back to Figma. Use Figma's cloud connector for that direction.
-
-## Development
-
-Run from the repo root (pnpm workspace aggregates sub-package scripts):
+This is a breaking read-protocol update. Update all three packages together. Stop the old bridge before restarting: the new hook refuses to reuse the old cache-based protocol.
 
 ```bash
-pnpm dev                                          # = pnpm --filter @codex-figma/bridge run dev (tsx watch)
-pnpm --filter @codex-figma/figma-plugin run watch  # esbuild watch — rebuild on file change
-```
-
-Typecheck everything:
-
-```bash
+pnpm --filter @codex-figma/bridge run clean
+pnpm build
 pnpm -r run typecheck
+pnpm --filter @codex-figma/bridge test
+node --test packages/codex-plugin/tests/session-start.test.mjs
 ```
 
-## Troubleshooting & debugging
+Update the global bridge install or the build selected by `CODEX_FIGMA_BRIDGE_ENTRY`, refresh/reinstall the cached Codex plugin, then reopen Figma's plugin and a Codex session. Old cache files are neither read nor written; upgrading does not delete historical files.
 
-The system has three layers — debug them in order, from the easiest (bridge) outward.
+Use `pnpm dev` for the bridge watcher and `pnpm --filter @codex-figma/figma-plugin watch` for plugin builds. A foreground watcher and background bridge cannot both listen on the same port.
 
-> **Monorepo note**: This is a pnpm workspace. Run all commands from the repo root via `pnpm -r run <script>` (all packages) or `pnpm --filter <pkg> run <script>` (one package). Running `npm run <script>` inside a sub-package directory won't work — shared devDependencies (`typescript`, `@types/node`) live at the root and aren't visible from a sub-package's `node_modules`.
+The default port is **11111**. If changing `CODEX_FIGMA_BRIDGE_PORT` or `CODEX_FIGMA_BRIDGE_HOST`, update `.mcp.json`, the Figma Bridge URL and manifest network domains together. Saved Figma URLs survive upgrades and may need changing manually.
 
-### 1. Bridge (localhost)
+## Troubleshooting
 
-The bridge is a plain HTTP server, so it's the easiest layer to inspect.
+`curl http://localhost:11111/health` should report `service: "codex-figma-bridge"`, `mode: "live-name-query"` and `connectedPlugins`. Exactly one plugin must be connected for reads.
 
-```bash
-# Start with debug logging (structured JSONL → stderr + bridge.log)
-cd bridge
-CODEX_FIGMA_BRIDGE_LOG_LEVEL=debug npm run dev
+- `EADDRINUSE`: stop the conflicting process or update all port settings.
+- `reconnecting…`: check the server and URL, then click **Reconnect**.
+- Node not found: check the full layer name and target file, not the selection.
+- Large-file timeout: keep the plugin open and retry; no stale data is returned.
+- Push controls still visible: rebuild and reopen the Figma plugin.
 
-# Tail the structured log
-tail -f ~/Library/Caches/codex-figma-bridge/bridge.log
+Logs default to `~/Library/Logs/codex-figma-bridge/bridge.log` on macOS or `${XDG_STATE_HOME:-~/.local/state}/codex-figma-bridge/bridge.log` on Linux. Override with `CODEX_FIGMA_BRIDGE_LOG_DIR`. The hook writes `startup.log` to `PLUGIN_DATA`, falling back to the default log directory.
 
-# Liveness + cache state
-curl http://127.0.0.1:3845/health
+Packages: [Bridge](packages/bridge), [Figma plugin](packages/figma-plugin), [Codex plugin](packages/codex-plugin). `2.0.17/` is a historical reference plugin and is not part of this build.
 
-# Watch SSE events live (selection-change broadcasts)
-curl -N http://127.0.0.1:3845/events
-
-# Inspect the raw cached payload
-cat ~/Library/Caches/codex-figma-bridge/current-selection.json | jq .
-```
-
-**MCP Inspector** — the official GUI and the single best debugging tool. It visualizes `tools/list`, lets you call any tool, and shows raw JSON-RPC traffic:
-
-```bash
-npx @modelcontextprotocol/inspector
-```
-
-In the UI pick transport `Streamable HTTP`, URL `http://127.0.0.1:3845/mcp`, connect. You should see all 6 tools and be able to call `get_selection` manually — this bypasses both Figma and Codex, isolating the bridge.
-
-### 2. Figma plugin (runs inside Figma's sandbox)
-
-The plugin runs in two contexts; each has its own console.
-
-| Context          | File                                           | Where its `console.log` lands                                     |
-| ---------------- | ---------------------------------------------- | ----------------------------------------------------------------- |
-| Sandbox (no DOM) | [`code.ts`](packages/figma-plugin/src/code.ts) | Figma's main Dev Console                                          |
-| UI iframe        | [`ui.ts`](packages/figma-plugin/src/ui/ui.ts)  | Iframe console — pick it from the dropdown at the top of DevTools |
-
-Open the console: Figma Desktop → **Plugins → Development → &lt;plugin&gt;** to run it, then **Menu → Plugins → Development → Open Console** (or `Cmd+Opt+I` on macOS).
-
-Common issues:
-
-- **Manifest import error: `Invalid value for allowedDomains. '...' must be a valid URL`** — Figma's URL validator rejects IP literals like `http://127.0.0.1:3845`. Use the `localhost` hostname instead: `http://localhost:3845`. All entries in `allowedDomains` must use `localhost`, never `127.0.0.1`.
-- **`fetch failed` / CORS errors** — [`manifest.json`](packages/figma-plugin/manifest.json)'s `networkAccess.allowedDomains` must include your bridge URL (default `http://localhost:3845`). If you changed the bridge port, update this too — and keep the `localhost` hostname (see above).
-- **`ReferenceError: 'AbortController' is not defined`** — the Figma plugin sandbox (where [`code.ts`](packages/figma-plugin/src/code.ts) runs) is a minimal QuickJS environment and doesn't expose `AbortController`. Use `Promise.race` + `setTimeout` for fetch timeouts instead. [`bridge-client.ts`](packages/figma-plugin/src/bridge-client.ts) already does this — if you add new sandbox-side network code, follow the same pattern. (Browser-only globals like `XMLHttpRequest`, `FormData`, `localStorage` are also absent from the sandbox; UI-side code in [`ui.ts`](packages/figma-plugin/src/ui/ui.ts) runs in a real iframe and can use them freely.)
-- **"bridge down" pill stays red** — bridge isn't running, or port mismatch. Click **Probe** to re-check.
-- **No `selection stored` in the bridge log after selecting a node** — the plugin only fires on real node selection, not empty-canvas clicks. Select a Frame/Component/layer in the layers panel, then **Push now**.
-- **Push succeeds but `selectionCount: 0`** — selection was empty at push time. Re-select and push again.
-
-### 3. Codex CLI (the consumer)
-
-Codex is mostly a black box, but the bridge log tells you exactly what it's doing:
-
-```bash
-# After asking Codex to implement, filter for MCP activity
-tail -f ~/Library/Caches/codex-figma-bridge/bridge.log | grep mcp
-```
-
-You should see, in order:
-
-1. `mcp session initialized` — Codex connected.
-2. `tools/call get_selection` — Codex queried the selection.
-3. More `tools/call` lines as it walks the tree.
-
-If you don't see `mcp session initialized`:
-
-- Confirm [`codex-config.snippet.toml`](codex-config.snippet.toml) was merged into your Codex config.
-- Run `codex mcp list` (or equivalent) to verify the server is registered.
-- Check the bridge URL in the config matches the bridge's actual port.
-
-If Codex connects but never calls tools:
-
-- Make sure `AGENTS.md` (copied from [`AGENTS.md.template`](AGENTS.md.template)) is in the target repo's root — that's what teaches Codex the workflow.
-- Or invoke the skill explicitly: `/implement-from-figma`.
-
-### End-to-end smoke test (no Figma, no Codex)
-
-The fastest way to verify the whole chain without opening Figma or Codex:
-
-```bash
-# 1. Bridge up on a throwaway port
-CODEX_FIGMA_BRIDGE_PORT=3951 pnpm --filter @codex-figma/bridge run start &
-
-# 2. Inject a fake selection (bypasses the Figma plugin)
-curl -X POST http://127.0.0.1:3951/selection \
-  -H 'content-type: application/json' \
-  --data '{"fileKey":"test","fileName":"t","pageId":"0:1","pageName":"p","capturedAt":"2026-08-17T00:00:00Z","pluginVersion":"0.1.0","selection":[],"nodes":{},"assets":{}}'
-
-# 3. Confirm the bridge saw it (selectionCount should be non-zero)
-curl http://127.0.0.1:3951/health
-
-# 4. Point MCP Inspector at http://127.0.0.1:3951/mcp and call get_selection
-```
-
-Recommended order: **Bridge (curl + Inspector) → +Figma (DevTools console) → +Codex (bridge.log grep mcp)**. Confirm each layer independently before stacking the next, so you can pinpoint which link broke.
-
-## License
-
-MIT. See [`LICENSE`](LICENSE) (or each package's `package.json`).
+MIT — see [LICENSE](LICENSE).

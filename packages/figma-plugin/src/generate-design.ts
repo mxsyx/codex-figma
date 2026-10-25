@@ -129,7 +129,7 @@ function applyVisualStyle(
 }
 
 function applyCommonStyle(node: SceneNode, spec: DesignNode): void {
-  if (spec.opacity !== undefined) node.opacity = spec.opacity;
+  if ('opacity' in node && spec.opacity !== undefined) node.opacity = spec.opacity;
 }
 
 function solidPaint(color: DesignColor): SolidPaint {

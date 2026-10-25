@@ -42,6 +42,8 @@ export function registerGenerateDesign(
         };
       }
 
+      if (sse.size() !== 1) return { isError: true, content: [{ type: 'text' as const,
+        text: 'Keep exactly one Figma plugin connected in the target file before generating a design.' }] };
       const requestId = randomUUID();
       const resultPromise = pendingDesign.create(requestId);
       sse.broadcast({

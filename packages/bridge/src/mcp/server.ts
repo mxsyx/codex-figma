@@ -1,100 +1,31 @@
-/**
- * Factory that wires a fresh McpServer with all tools registered against
- * the shared ContextStore. Called once per MCP session by routes/mcp.ts.
- *
- * Tools:
- *   - get_selection   (no args)               → selection summary
- *   - get_node        (nodeId, depth, flags)  → serialized node tree
- *   - get_screenshot  (nodeId, format?)       → PNG image content
- *   - get_asset       (nodeId, format?)       → SVG/PNG image content (icons)
- *   - list_nodes      (type?, name?)          → search hits
- *   - get_variables   (collectionName?)       → design-token rows
- *
- * Also registers one resource: `figma://selection/current` — same payload as
- * `get_selection`, for clients that prefer the resource surface.
- */
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { ContextStore } from "../store/context-store.js";
-import type { SseBroadcaster } from "../util/sse.js";
-import type { PendingFetchRegistry } from "../store/pending-fetch.js";
-import type { PendingDesignRegistry } from "../store/pending-design.js";
-import type { PendingComponentsRegistry } from "../store/pending-components.js";
-import type { Logger } from "../util/logger.js";
-import { registerGetSelection } from "./tools/get-selection.js";
-import { registerGetNode } from "./tools/get-node.js";
-import { registerGetScreenshot } from "./tools/get-screenshot.js";
-import { registerGetAsset } from "./tools/get-asset.js";
-import { registerListNodes } from "./tools/list-nodes.js";
-import { registerGetVariables } from "./tools/get-variables.js";
-import { registerGenerateDesign } from "./tools/generate-design.js";
-import { registerListComponents } from "./tools/list-components.js";
-import { BRIDGE_VERSION } from "../routes/health.js";
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { SseBroadcaster } from '../util/sse.js';
+import type { PendingQueryRegistry } from '../store/pending-query.js';
+import type { PendingDesignRegistry } from '../store/pending-design.js';
+import type { PendingComponentsRegistry } from '../store/pending-components.js';
+import type { Logger } from '../util/logger.js';
+import { registerLiveNodeTools } from './tools/live-nodes.js';
+import { registerGenerateDesign } from './tools/generate-design.js';
+import { registerListComponents } from './tools/list-components.js';
+import { BRIDGE_VERSION } from '../routes/health.js';
 
 export function createMcpServer(
-  store: ContextStore,
   sse: SseBroadcaster,
-  pendingFetch: PendingFetchRegistry,
+  pendingQuery: PendingQueryRegistry,
   pendingDesign: PendingDesignRegistry,
   pendingComponents: PendingComponentsRegistry,
   log: Logger,
 ): McpServer {
-  const server = new McpServer(
-    {
-      name: "codex-figma-bridge",
-      version: BRIDGE_VERSION,
-    },
-    {
-      capabilities: {
-        logging: {},
-      },
-      instructions:
-        "This server exposes Figma design context captured by the Codex Figma plugin. " +
-        "Call get_selection to see the current selection, or call get_node with any node id " +
-        "to fetch it on demand (the plugin uses figma.getNodeByIdAsync to find and capture it). " +
-        "get_node / get_screenshot / get_asset / list_nodes / get_variables all work on the " +
-        'cached node tree. Call list_components to scan and cache every component on a named ' +
-        'Figma page, then use get_node with a returned component id. Call generate_design to ' +
-        'send a structured intent-derived design to ' +
-        'the plugin for one-click generation. If a tool returns "plugin not connected", ask the ' +
-        "user to open the Codex Figma Bridge plugin in Figma Desktop.",
-    },
-  );
-
-  registerGetSelection(server, store);
-  registerGetNode(server, store, sse, pendingFetch, log);
-  registerGetScreenshot(server, store, sse, pendingFetch, log);
-  registerGetAsset(server, store, sse, pendingFetch, log);
-  registerListNodes(server, store);
-  registerGetVariables(server, store);
+  const server = new McpServer({ name: 'codex-figma-bridge', version: BRIDGE_VERSION }, {
+    instructions: 'Implement requests such as “实现 figma 节点「登录页」” by calling resolve_node with the exact name. ' +
+      'Every read queries the connected Figma file live, across all pages, including hidden and unselected nodes. ' +
+      'There is no Push workflow or design cache. For duplicate names, show all candidate screenshots with page/layer paths ' +
+      'and wait for the user to choose. Carry the confirmed choice internally and keep querying by nodeName. ' +
+      'Do not look up nodes by ID or pick a duplicate automatically. If the plugin is disconnected, ask the user to open it. ' +
+      'list_components queries a component library live; generate_design retains one-click generation in the plugin.',
+  });
+  registerLiveNodeTools(server, sse, pendingQuery);
   registerGenerateDesign(server, sse, pendingDesign, log);
   registerListComponents(server, sse, pendingComponents, log);
-
-  server.registerResource(
-    "current-selection",
-    "figma://selection/current",
-    {
-      title: "Current Figma selection",
-      description:
-        "The latest selection summary captured by the Codex Figma plugin.",
-      mimeType: "application/json",
-    },
-    async () => {
-      const summary = store.getSelection();
-      return {
-        contents: [
-          {
-            uri: "figma://selection/current",
-            mimeType: "application/json",
-            text: JSON.stringify(
-              summary ?? { error: "no selection captured" },
-              null,
-              2,
-            ),
-          },
-        ],
-      };
-    },
-  );
-
   return server;
 }

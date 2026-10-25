@@ -1,90 +1,76 @@
-# Codex Figma Bridge — Local Bridge
+# codex-figma-bridge
 
-Always-on HTTP server + MCP server that sits between the Figma plugin and Codex CLI.
+A local HTTP/MCP bridge for live queries against an open Figma file. Ask Codex:
 
-```
-Figma Plugin ──POST /selection──▶ Bridge ──MCP (POST /mcp)──▶ Codex CLI
-Codex CLI ──generate_design────▶ Bridge ──SSE───────────────▶ Figma Plugin
-                                  │
-                                  └── caches to disk:
-                                      current-selection.json
-                                      nodes/<id>.json
-                                      assets/<id>.{png,svg}
-```
+> 实现 figma 节点「登录页」
+
+The Figma plugin searches all pages by exact node name and returns current data. Duplicate names produce numbered screenshots and page/layer paths; Codex waits for the user's choice. Every subsequent read searches by name again, verifying the internal document/node choice. No node data, screenshots, selection state or completed responses are cached on disk or in a shared store.
 
 ## Run
 
-```bash
-npm install
-npm start
-```
-
-Dev mode (hot reload):
+Requires Node.js 20+. In the monorepo:
 
 ```bash
-npm run dev
+pnpm install
+pnpm --filter @codex-figma/bridge build
+pnpm --filter @codex-figma/bridge start
 ```
 
-## HTTP endpoints
+The [Codex plugin](../codex-plugin) can start/reuse a background instance through its SessionStart hook. A compiled bridge takes precedence over the source fallback; rebuild after source changes. Use `pnpm --filter @codex-figma/bridge dev` for development.
 
-| Method + path | Purpose |
-|---------------|---------|
-| `GET /health` | Liveness + cache state. Returns `{ ok, version, capturedAt, fileKey, pageName, selectionCount, rootCount }`. |
-| `POST /selection` | Receive a captured selection from the Figma plugin. Body validated against the zod schema in `src/store/schema.ts`. |
-| `POST /design/result` | Receive the result after the Figma plugin generates a Codex-provided design. |
-| `POST /components` | Receive components discovered on a named Figma page. |
-| `GET /events` | Server-Sent Events stream of `selection-change` events. Useful for a future live-preview UI. |
-| `POST /mcp` | MCP Streamable HTTP — JSON-RPC requests (initialize, tools/call, etc.). |
-| `GET /mcp` | MCP SSE stream for server-initiated notifications (requires `mcp-session-id` header). |
-| `DELETE /mcp` | Close an MCP session. |
-
-## MCP tools
-
-| Tool | Input | Output |
-|------|-------|--------|
-| `get_selection` | (none) | Latest selection summary. |
-| `get_node` | `{ nodeId, depth?, includeStyles?, includeVariables?, includeText? }` | Serialized node tree. |
-| `get_screenshot` | `{ nodeId, format? }` | PNG image content. |
-| `get_asset` | `{ nodeId, format? }` | SVG (preferred) or PNG image content. |
-| `list_nodes` | `{ type?, name? }` | Search hits. |
-| `get_variables` | `{ collectionName? }` | Bound variable rows. |
-| `generate_design` | `{ design }` | Sends a structured design to the plugin and waits for the one-click generation result. |
-| `list_components` | `{ pageName, query? }` | Asks the plugin to scan a named page, caches component trees, and returns component metadata. |
-
-Plus the MCP resource `figma://selection/current`.
+The Figma plugin must remain open and connected. Exactly one Figma plugin connection is required; multiple Codex sessions may share it.
 
 ## Configuration
 
-| Env var | Default | Notes |
-|---------|---------|-------|
-| `CODEX_FIGMA_BRIDGE_PORT` | `3845` | Port to listen on. |
-| `CODEX_FIGMA_BRIDGE_HOST` | `127.0.0.1` | Bind address. |
-| `CODEX_FIGMA_BRIDGE_ROOT` | OS cache dir + `codex-figma-bridge` | Cache directory. |
-| `CODEX_FIGMA_BRIDGE_LOG_LEVEL` | `info` | `debug` / `info` / `warn` / `error`. |
+| Variable | Default |
+| --- | --- |
+| `CODEX_FIGMA_BRIDGE_PORT` | `11111` |
+| `CODEX_FIGMA_BRIDGE_HOST` | `127.0.0.1` |
+| `CODEX_FIGMA_BRIDGE_LOG_LEVEL` | `info` |
+| `CODEX_FIGMA_BRIDGE_LOG_DIR` | macOS: `~/Library/Logs/codex-figma-bridge`; Linux: `${XDG_STATE_HOME:-~/.local/state}/codex-figma-bridge` |
 
-## Architecture
+The directory contains operational `bridge.log` only. `CODEX_FIGMA_BRIDGE_ROOT` and the former design cache are no longer used. Old cache files are not automatically deleted.
 
-The bridge is a thin Node.js `http` server with no external HTTP framework. State lives in three places:
+Changing the host/port also requires updating the Codex MCP URL, Figma plugin URL and manifest network domains.
 
-- **`ContextStore`** (`src/store/context-store.ts`) — in-memory mirror of the latest payload, with on-disk persistence under `<root>/`. The single source of truth for MCP tool reads.
-- **`SseBroadcaster`** (`src/util/sse.ts`) — fan-out for `selection-change` events.
-- **`McpRouteHandler`** (`src/routes/mcp.ts`) — per-session map of `(sessionId → { transport, server })` for stateful MCP. The same `ContextStore` is shared across all sessions.
+## HTTP protocol
 
-MCP transport is **Streamable HTTP** (stateful). Each Codex client gets one session id via the `mcp-session-id` header; the session lives until the client sends `DELETE /mcp` or the bridge restarts.
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Service identity, `mode: live-name-query`, connected plugin count |
+| `GET /events` | SSE requests to the Figma plugin |
+| `POST /query/result` | Validated response to an outstanding name query |
+| `POST /components` | Response to an outstanding component scan |
+| `POST /design/result` | Result of requested one-click design generation |
+| `/mcp` | Streamable HTTP MCP transport |
 
-## Testing
+`POST /selection` and `POST /node` have been removed. Unsolicited or expired query/component responses return 409. No background push or selection resource exists.
 
-Smoke-test the bridge:
+A node call sends `node-query-request` with `requestId`, `operation`, `nodeName`, `offset`, `limit`, `depth` and optional `choice`, `format`, `collectionName`. The plugin loads all pages and scans names every time. Replies include document identity, `unique`/`ambiguous`/`not_found`/`stale_choice`/`error` status, candidates and operation-specific data. The bridge retains only the pending request until delivery or timeout (90 seconds for node queries).
+
+## MCP tools
+
+| Tool | Input / behavior |
+| --- | --- |
+| `resolve_node` | `nodeName`; previews for every exact match, paginated |
+| `get_node` | `nodeName`, optional confirmed `choice`, `depth` (default 5, 0–20) |
+| `get_screenshot` | `nodeName`, optional `choice`; fresh PNG |
+| `get_asset` | `nodeName`, optional `choice`, `format` (`SVG` default, or `PNG`) |
+| `get_variables` | `nodeName`, optional `choice`, `depth`, `collectionName` |
+| `list_components` | `pageName`, optional substring `query`; live library metadata |
+| `generate_design` | Structured `design`; waits for the plugin's Generate click |
+
+Node reads accept `offset` (default 0) and `limit` (default/max 6) for ambiguous results. A `choice` is `{documentId, nodeId}` from a resolved/user-confirmed candidate; it never enables ID-only lookup. Ambiguity returns candidate previews without reading a full tree or arbitrary asset. Missing previews retain the candidate with an error. The implementation skill instructs Codex to gather all pages and wait for the user.
+
+Read SVG exports are limited to vector-like nodes; use PNG for other nodes. Generation keeps its existing component identity fields for creating instances.
+
+## Validate
 
 ```bash
-npm start &
-sleep 1
-curl http://localhost:3845/health
-# → {"ok":true,"version":"0.1.0","capturedAt":null,...}
+pnpm --filter @codex-figma/bridge typecheck
+pnpm --filter @codex-figma/bridge test
 ```
 
-Inspect with the MCP Inspector:
+Tests cover all-page/hidden-node search, duplicate pagination, screenshots, stale choices, fresh reads, correlation cleanup, and an actual local HTTP/MCP/SSE round trip using a mocked Figma API. These tests do not replace a Figma Desktop acceptance check.
 
-```bash
-npx @modelcontextprotocol/inspector http://localhost:3845/mcp
-```
+See the [repository README](../../README.md) for installation, upgrade and troubleshooting.

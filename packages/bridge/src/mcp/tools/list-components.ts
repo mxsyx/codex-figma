@@ -18,7 +18,7 @@ export function registerListComponents(
     {
       title: 'List components on a Figma page',
       description:
-        'Scans every COMPONENT and COMPONENT_SET node on a named Figma page, caches their serialized node trees, and returns component metadata. Use the returned node ids with get_node to inspect a specific component. Use query to filter by component name substring.',
+        'Scans every COMPONENT and COMPONENT_SET node on a named Figma page, returns fresh component metadata without retaining node data. Use get_node with the returned component name and choice to inspect it. Use query to filter by component name substring.',
       inputSchema: {
         pageName: z.string().min(1).max(160).describe('Exact Figma page name, e.g. "Polaris".'),
         query: z.string().min(1).max(160).optional().describe('Case-insensitive component name substring.'),
@@ -30,13 +30,13 @@ export function registerListComponents(
       },
     },
     async ({ pageName, query }) => {
-      if (sse.size() === 0) {
+      if (sse.size() !== 1) {
         return {
           isError: true,
           content: [
             {
               type: 'text',
-              text: 'Figma plugin is not connected. Open the Codex Figma Bridge plugin in Figma Desktop.',
+              text: 'Keep exactly one Codex Figma Bridge plugin connected in the target Figma file.',
             },
           ],
         };
@@ -72,8 +72,8 @@ export function registerListComponents(
                 pageId: result.pageId,
                 pageName: result.pageName,
                 componentCount: result.components.length,
-                components: result.components,
-                nextStep: 'Call get_node with any component id to inspect its full serialized tree.',
+                components: result.components.map((c) => ({ ...c, choice: { documentId: result.documentId, nodeId: c.id } })),
+                nextStep: 'Call get_node with nodeName and the returned choice to inspect a component live.',
               },
               null,
               2,

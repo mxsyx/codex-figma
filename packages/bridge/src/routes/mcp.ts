@@ -1,8 +1,7 @@
 /**
  * MCP Streamable HTTP route. Stateful mode — each Codex client gets one
- * session id and one (transport, server) pair. The shared ContextStore is
- * the same across all sessions, so multiple clients can read the same
- * captured selection.
+ * session id and one (transport, server) pair. Node data is queried live
+ * for each tool call and never retained between requests.
  *
  * Routes:
  *   POST   /mcp  — JSON-RPC request (initialize, tools/call, etc.)
@@ -13,9 +12,8 @@ import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { ContextStore } from "../store/context-store.js";
 import type { SseBroadcaster } from "../util/sse.js";
-import type { PendingFetchRegistry } from "../store/pending-fetch.js";
+import type { PendingQueryRegistry } from "../store/pending-query.js";
 import type { PendingDesignRegistry } from "../store/pending-design.js";
 import type { PendingComponentsRegistry } from "../store/pending-components.js";
 import type { Logger } from "../util/logger.js";
@@ -33,9 +31,8 @@ export class McpRouteHandler {
   private sessions = new Map<string, Session>();
 
   constructor(
-    private readonly store: ContextStore,
     private readonly sse: SseBroadcaster,
-    private readonly pendingFetch: PendingFetchRegistry,
+    private readonly pendingQuery: PendingQueryRegistry,
     private readonly pendingDesign: PendingDesignRegistry,
     private readonly pendingComponents: PendingComponentsRegistry,
     private readonly log: Logger,
@@ -94,9 +91,8 @@ export class McpRouteHandler {
       sessionIdGenerator: () => id,
     });
     const server = createMcpServer(
-      this.store,
       this.sse,
-      this.pendingFetch,
+      this.pendingQuery,
       this.pendingDesign,
       this.pendingComponents,
       this.log,

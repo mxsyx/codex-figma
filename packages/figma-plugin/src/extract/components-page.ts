@@ -1,26 +1,29 @@
-import type { ComponentSummary, ComponentsResult, SerializedNode } from '../types.js';
-import { serializeNodeTree } from './node-tree.js';
-
-const MAX_COMPONENT_TREE_DEPTH = 10;
-
+import type { ComponentSummary, ComponentsResult } from '../types.js';
+import { documentId } from '../query-nodes.js';
 export async function captureComponents(
   requestId: string,
   pageName: string,
   query?: string,
 ): Promise<ComponentsResult> {
-  const page = figma.root.children.find((candidate) => candidate.name === pageName);
+  try {
+    await figma.loadAllPagesAsync();
+    figma.skipInvisibleInstanceChildren = false;
+  } catch (err) {
+    return { requestId, found: false, components: [], error: String(err) };
+  }
+  const pages = figma.root.children.filter((candidate) => candidate.name === pageName);
+  if (pages.length > 1) return { requestId, found: false, components: [], error: `Multiple pages are named "${pageName}". Rename a page before querying the library.` };
+  const page = pages[0];
   if (!page) {
     return {
       requestId,
       found: false,
       components: [],
-      nodes: {},
       error: `Figma page "${pageName}" was not found.`,
     };
   }
 
   const components: ComponentSummary[] = [];
-  const nodes: Record<string, SerializedNode> = {};
   const needle = query?.trim().toLowerCase();
 
   async function walk(node: SceneNode, includeChildren = false): Promise<void> {
@@ -28,7 +31,6 @@ export async function captureComponents(
       const matches = includeChildren || !needle || node.name.toLowerCase().includes(needle);
       if (matches) {
         components.push(summarizeComponent(node));
-        nodes[node.id] = await serializeNodeTree(node, MAX_COMPONENT_TREE_DEPTH);
       }
 
       if (node.type === 'COMPONENT_SET' && matches) {
@@ -56,7 +58,7 @@ export async function captureComponents(
     pageId: page.id,
     pageName: page.name,
     components,
-    nodes,
+    documentId,
   };
 }
 

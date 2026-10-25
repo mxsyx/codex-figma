@@ -1,7 +1,6 @@
 /**
  * Recursively walk a Figma node subtree and produce a JSON-safe SerializedNode
- * tree. Depth-capped to keep payloads reasonable for large frames; hidden
- * subtrees are pruned (we still emit the hidden root, but don't recurse).
+ * tree. Depth-capped per live query; hidden children are included.
  *
  * The walker is async because variable resolution requires `await`. Children
  * are processed in parallel where possible.
@@ -30,10 +29,8 @@ async function serialize(node: SceneNode, depth: number, maxDepth: number): Prom
   let children: SerializedNode[] | null = null;
   const childNodes = safeOptional(() => (node as { children?: readonly SceneNode[] }).children);
   if (childNodes && Array.isArray(childNodes) && depth < maxDepth) {
-    // Only recurse into visible subtrees — hidden ones can't affect layout.
-    const visibleChildren = visible ? childNodes : [];
     children = await Promise.all(
-      visibleChildren.map((c) => serialize(c as SceneNode, depth + 1, maxDepth)),
+      childNodes.map((c) => serialize(c as SceneNode, depth + 1, maxDepth)),
     );
   }
 

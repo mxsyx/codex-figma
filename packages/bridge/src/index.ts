@@ -1,19 +1,18 @@
 /**
- * Bridge CLI entry point. Parses environment, wires up ContextStore + SSE
+ * Bridge CLI entry point. Parses environment, wires up live query routing + SSE
  * broadcaster + McpRouteHandler, and starts the HTTP server.
  *
  * Env:
- *   CODEX_FIGMA_BRIDGE_PORT         — port (default 3845)
+ *   CODEX_FIGMA_BRIDGE_PORT         — port (default 11111)
  *   CODEX_FIGMA_BRIDGE_HOST         — host (default 127.0.0.1)
- *   CODEX_FIGMA_BRIDGE_ROOT         — cache root (default OS cache dir)
+ *   CODEX_FIGMA_BRIDGE_LOG_DIR      — operational log directory
  *   CODEX_FIGMA_BRIDGE_LOG_LEVEL    — debug | info | warn | error (default info)
  */
 import { createServer } from './server.js';
-import { makePaths } from './store/paths.js';
-import { ContextStore } from './store/context-store.js';
+import { makeLogPaths } from './util/paths.js';
 import { createLogger, type LogLevel } from './util/logger.js';
 import { SseBroadcaster } from './util/sse.js';
-import { PendingFetchRegistry } from './store/pending-fetch.js';
+import { PendingQueryRegistry } from './store/pending-query.js';
 import { PendingDesignRegistry } from './store/pending-design.js';
 import { PendingComponentsRegistry } from './store/pending-components.js';
 import { McpRouteHandler } from './routes/mcp.js';
@@ -34,23 +33,21 @@ function parseLogLevel(raw: string | undefined): LogLevel {
 }
 
 async function main(): Promise<void> {
-  const port = parsePort(process.env.CODEX_FIGMA_BRIDGE_PORT, 3845);
+  const port = parsePort(process.env.CODEX_FIGMA_BRIDGE_PORT, 11111);
   const host = process.env.CODEX_FIGMA_BRIDGE_HOST ?? '127.0.0.1';
-  const paths = makePaths(process.env.CODEX_FIGMA_BRIDGE_ROOT);
+  const paths = makeLogPaths();
   const log = createLogger(paths, parseLogLevel(process.env.CODEX_FIGMA_BRIDGE_LOG_LEVEL));
 
-  log.info('starting codex-figma-bridge', { version: BRIDGE_VERSION, cacheRoot: paths.root });
+  log.info('starting codex-figma-bridge', { version: BRIDGE_VERSION, logRoot: paths.root });
 
-  const store = new ContextStore(paths, log);
   const sse = new SseBroadcaster();
-  const pendingFetch = new PendingFetchRegistry(log);
+  const pendingQuery = new PendingQueryRegistry();
   const pendingDesign = new PendingDesignRegistry(log);
   const pendingComponents = new PendingComponentsRegistry(log);
-  const mcp = new McpRouteHandler(store, sse, pendingFetch, pendingDesign, pendingComponents, log);
+  const mcp = new McpRouteHandler(sse, pendingQuery, pendingDesign, pendingComponents, log);
   const server = createServer({
-    store,
     sse,
-    pendingFetch,
+    pendingQuery,
     pendingDesign,
     pendingComponents,
     log,
@@ -58,7 +55,16 @@ async function main(): Promise<void> {
   });
 
   server.on('error', (err) => {
-    log.error('http server error', { error: String(err) });
+    const code = (err as NodeJS.ErrnoException).code;
+    log.error(`http server error: ${err.message}`, { error: String(err), code, host, port });
+    if (code === 'EADDRINUSE') {
+      log.error(
+        `Port ${port} on ${host} is already in use. Stop the conflicting service or set ` +
+          'CODEX_FIGMA_BRIDGE_PORT to a free port, then update the Figma plugin Bridge URL, ' +
+          'manifest networkAccess.allowedDomains, and Codex MCP URL to match.',
+      );
+    }
+    if (!server.listening) process.exitCode = 1;
   });
 
   server.listen(port, host, () => {
@@ -67,8 +73,7 @@ async function main(): Promise<void> {
       port,
       endpoints: {
         health: `http://${host}:${port}/health`,
-        selection: `http://${host}:${port}/selection`,
-        node: `http://${host}:${port}/node`,
+        queryResult: `http://${host}:${port}/query/result`,
         designResult: `http://${host}:${port}/design/result`,
         components: `http://${host}:${port}/components`,
         events: `http://${host}:${port}/events`,
@@ -78,7 +83,7 @@ async function main(): Promise<void> {
     // eslint-disable-next-line no-console
     console.log(`codex-figma-bridge v${BRIDGE_VERSION} listening on http://${host}:${port}`);
     // eslint-disable-next-line no-console
-    console.log(`  cache: ${paths.root}`);
+    console.log(`  logs:  ${paths.root}`);
     // eslint-disable-next-line no-console
     console.log(`  mcp:   http://${host}:${port}/mcp`);
   });

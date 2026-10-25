@@ -1,11 +1,6 @@
 /**
- * Server-Sent Events broadcaster. Used by GET /events so the Figma plugin UI
- * (or any local listener) can watch for selection-change events without
- * polling.
- *
- * The bridge itself doesn't need these notifications — it's the source —
- * but exposing them keeps the door open for a future "live preview" UI
- * running in a browser tab.
+ * Server-Sent Events broadcaster for live queries and design requests.
+ * Stores connection callbacks only, never node data.
  */
 import { type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';

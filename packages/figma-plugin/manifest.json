@@ -7,8 +7,8 @@
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
   "networkAccess": {
-    "allowedDomains": ["http://localhost:3845"],
-    "reasoning": "Posts the user's current Figma selection (node tree, styles, text, variables, components, screenshots) to a local Codex Figma Bridge, receives one-click design generation requests from Codex through the same bridge, and posts generation results back. No data leaves the user's machine."
+    "allowedDomains": ["http://localhost:11111"],
+    "reasoning": "Receives live name-based queries from the local Codex Figma Bridge and returns matching nodes, screenshots, and assets from all pages. Also receives one-click design generation requests and returns their results. No design data is uploaded unless requested."
   },
   "permissions": [],
   "capabilities": [],

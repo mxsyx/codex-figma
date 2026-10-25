@@ -4,7 +4,7 @@
  * is small enough that pino would be overkill.
  */
 import { appendFileSync } from 'node:fs';
-import type { BridgePaths } from '../store/paths.js';
+import type { LogPaths } from './paths.js';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -15,7 +15,7 @@ export interface Logger {
   error(msg: string, fields?: Record<string, unknown>): void;
 }
 
-export function createLogger(paths: BridgePaths, minLevel: LogLevel = 'info'): Logger {
+export function createLogger(paths: LogPaths, minLevel: LogLevel = 'info'): Logger {
   const order: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
   function write(level: LogLevel, msg: string, fields?: Record<string, unknown>): void {
